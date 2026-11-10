@@ -1,0 +1,53 @@
+
+.header {
+  width: 100%;
+  background-color: #0B1F4B;
+  border-bottom: 3px solid #C9A24B;
+}
+
+.header-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 24px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.brand-name {
+  color: #FFFFFF;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.brand-description {
+  color: #C9A24B;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.header-user {
+  color: #FFFFFF;
+  font-size: 14px;
+}
+
+@media (max-width: 600px) {
+  .header-container {
+    padding: 16px;
+  }
+
+  .brand-name {
+    font-size: 20px;
+  }
+
+  .header-user {
+    font-size: 12px;
+  }
+}
