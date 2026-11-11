@@ -192,14 +192,97 @@
   gap: 12px;
 }
 
+
 .contact-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  padding: 16px;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
   border: 1px solid #E8EEF7;
-  border-radius: 8px;
+  border-radius: 12px;
+  background: #FFFFFF;
+}
+
+.contact-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 32px;
+  align-items: start;
+}
+
+.contact-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.contact-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  margin-top: 0;
+}
+
+.contact-details label {
+  color: #0B1F4B;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.contact-observation {
+  width: 100%;
+  min-height: 110px;
+  padding: 14px;
+  background: #FAFBFE;
+  border: 1px solid #CBD5E1;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+}
+
+.contact-observation:focus {
+  border-color: #C9A24B;
+  box-shadow: 0 0 0 3px rgba(201, 162, 75, 0.12);
+}
+
+.contact-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid #E8EEF7;
+}
+
+/* Responsividade */
+
+@media (max-width: 768px) {
+  .contact-main {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .contact-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .contact-actions button,
+  .contact-actions a {
+    width: 100%;
+  }
+
+  .contact-item {
+    padding: 16px;
+  }
 }
 
 .contact-info {
@@ -473,5 +556,44 @@
   .btn-clear {
     width: 100%;
   }
+}
+
+.contact-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+  width: 100%;
+}
+
+.contact-date {
+  color: #64748B;
+  font-size: 12px;
+}
+
+.contact-details label {
+  color: #0B1F4B;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.contact-observation {
+  width: 100%;
+  min-height: 90px;
+  padding: 12px;
+  border: 1px solid #CBD5E1;
+  border-radius: 10px;
+  background: #FAFBFE;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #0B1F4B;
+  resize: vertical;
+  outline: none;
+}
+
+.contact-observation:focus {
+  border-color: #C9A24B;
+  box-shadow: 0 0 0 3px rgba(201, 162, 75, 0.12);
 }
 
