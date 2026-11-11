@@ -49,10 +49,12 @@ function Dashboard() {
 
         return {
           id: crypto.randomUUID(),
-          nome: nome?.trim() || `Contato ${index + 1}`,
-          telefone: telefone?.trim() || "",
-          cidade: cidade?.trim() || "Não informada",
+          nome: String(nome).trim(),
+          telefone: String(telefone).trim(),
+          cidade: String(cidade).trim() || "Não informada",
           status: "Pendente",
+          observacao: "",
+          dataEntrada: new Date().toISOString(),
         };
       })
       .filter((contato) => validarTelefone(contato.telefone));
@@ -67,6 +69,21 @@ function Dashboard() {
           return {
             ...contato,
             status: contato.status === "Pendente" ? "Contatado" : "Pendente",
+          };
+        }
+
+        return contato;
+      }),
+    );
+  }
+
+  function atualizarObservacao(id, novaObservacao) {
+    setContatos((anteriores) =>
+      anteriores.map((contato) => {
+        if (contato.id === id) {
+          return {
+            ...contato,
+            observacao: novaObservacao,
           };
         }
 
@@ -175,17 +192,24 @@ function Dashboard() {
           telefone: String(telefone).trim(),
           cidade: String(cidade).trim() || "Não informada",
           status: "Pendente",
+          observacao: "",
+          dataEntrada: new Date().toISOString(),
         };
       });
 
+      // Separar contatos válidos e inválidos
       const contatosValidos = novosContatos.filter((contato) =>
         validarTelefone(contato.telefone),
       );
 
+      const totalInvalidos = novosContatos.length - contatosValidos.length;
+
+      // Identificar números que já existem
       const numerosExistentes = new Set(
         contatos.map((contato) => normalizarTelefone(contato.telefone)),
       );
 
+      // Remover números duplicados
       const contatosUnicos = contatosValidos.filter((contato) => {
         const numero = normalizarTelefone(contato.telefone);
 
@@ -198,12 +222,48 @@ function Dashboard() {
         return true;
       });
 
+      const totalDuplicados = contatosValidos.length - contatosUnicos.length;
+
+      // Atualizar nossa lista
       setContatos((anteriores) => [...anteriores, ...contatosUnicos]);
 
-      alert(`${contatosUnicos.length} contatos importados com sucesso!`);
+      // Exibir modal personalizado
+      await alertaIW.fire({
+        icon: contatosUnicos.length > 0 ? "success" : "info",
+        title: "Importação concluída!",
+        html: `
+        <p>Sua planilha foi processada.</p>
+
+        <div class="iw-import-summary">
+          <div class="iw-import-stat imported">
+            <strong>${contatosUnicos.length}</strong>
+            <span>Importados</span>
+          </div>
+
+          <div class="iw-import-stat duplicated">
+            <strong>${totalDuplicados}</strong>
+            <span>Duplicados</span>
+          </div>
+
+          <div class="iw-import-stat invalid">
+            <strong>${totalInvalidos}</strong>
+            <span>Inválidos</span>
+          </div>
+        </div>
+      `,
+        confirmButtonText: "Entendi",
+        iconColor: contatosUnicos.length > 0 ? "#16A34A" : "#C9A24B",
+      });
     } catch (error) {
       console.error("Erro na importação:", error);
-      alert("Não foi possível importar a planilha.");
+
+      await alertaIW.fire({
+        icon: "error",
+        title: "Erro ao importar",
+        text: "Não foi possível ler a planilha. Verifique o arquivo e tente novamente.",
+        confirmButtonText: "Entendi",
+        iconColor: "#BE123C",
+      });
     } finally {
       event.target.value = "";
     }
@@ -289,7 +349,9 @@ function Dashboard() {
 
             <textarea
               className="contacts-textarea"
-              placeholder={"Caroline;85992821874;Fortaleza\nBianca;85991806975;Eusebio"}
+              placeholder={
+                "Caroline;85992821874;Fortaleza\nBianca;85991806975;Eusebio"
+              }
               value={listaTexto}
               onChange={(event) => setListaTexto(event.target.value)}
               rows={6}
@@ -372,24 +434,55 @@ function Dashboard() {
             <div className="contacts-list">
               {contatosFiltrados.map((contato) => (
                 <div className="contact-item" key={contato.id}>
-                  <div className="contact-info">
-                    <strong>{contato.nome}</strong>
+                  <div className="contact-main">
+                    {/* Informações do lead */}
+                    <div className="contact-info">
+                      <strong>{contato.nome}</strong>
 
-                    <span>{contato.telefone}</span>
+                      <span>{contato.telefone}</span>
 
-                    <span className="contact-city">📍 {contato.cidade}</span>
+                      <span className="contact-city">📍 {contato.cidade}</span>
 
-                    <span
-                      className={
-                        contato.status === "Contatado"
-                          ? "status-contatado"
-                          : "status-pendente"
-                      }
-                    >
-                      {contato.status}
-                    </span>
+                      <span
+                        className={
+                          contato.status === "Contatado"
+                            ? "status-contatado"
+                            : "status-pendente"
+                        }
+                      >
+                        {contato.status}
+                      </span>
+
+                      <span className="contact-date">
+                        Data de entrada:{" "}
+                        {contato.dataEntrada
+                          ? new Date(contato.dataEntrada).toLocaleDateString(
+                              "pt-BR",
+                            )
+                          : "Não registrada"}
+                      </span>
+                    </div>
+
+                    {/* Observações à direita */}
+                    <div className="contact-details">
+                      <label htmlFor={`observacao-${contato.id}`}>
+                        Observações do atendimento
+                      </label>
+
+                      <textarea
+                        id={`observacao-${contato.id}`}
+                        className="contact-observation"
+                        placeholder="Registre a tratativa com este lead..."
+                        value={contato.observacao || ""}
+                        onChange={(event) =>
+                          atualizarObservacao(contato.id, event.target.value)
+                        }
+                        rows={4}
+                      />
+                    </div>
                   </div>
 
+                  {/* Botões abaixo das informações */}
                   <div className="contact-actions">
                     <button
                       className="btn-status"
@@ -401,18 +494,18 @@ function Dashboard() {
                     </button>
 
                     <a
-                      href={gerarLinkWhatsApp(contato.telefone)}
+                      href={gerarLinkWhatsApp(contato.telefone, contato.nome)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="btn-whatsapp"
                     >
                       Abrir WhatsApp
                     </a>
+
                     <button
                       type="button"
                       className="btn-delete"
                       onClick={() => excluirContato(contato.id)}
-                      title="Excluir contato"
                     >
                       Excluir
                     </button>

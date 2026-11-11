@@ -71,3 +71,73 @@
     width: 100%;
   }
 }
+
+/* Resumo de importação */
+
+.iw-import-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 24px;
+  margin-bottom: 12px;
+}
+
+.iw-import-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  gap: 8px;
+  padding: 18px 8px;
+  border-radius: 12px;
+}
+
+.iw-import-stat strong {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.iw-import-stat span {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Importados */
+
+.iw-import-stat.imported {
+  background: #F0FDF4;
+  color: #15803D;
+}
+
+/* Duplicados */
+
+.iw-import-stat.duplicated {
+  background: #FFFBEB;
+  color: #9A7623;
+}
+
+/* Inválidos */
+
+.iw-import-stat.invalid {
+  background: #FFF1F2;
+  color: #BE123C;
+}
+
+@media (max-width: 480px) {
+  .iw-import-summary {
+    gap: 6px;
+  }
+
+  .iw-import-stat {
+    padding: 14px 4px;
+  }
+
+  .iw-import-stat strong {
+    font-size: 23px;
+  }
+
+  .iw-import-stat span {
+    font-size: 10px;
+  }
+}
