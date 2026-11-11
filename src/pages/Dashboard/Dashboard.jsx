@@ -5,6 +5,7 @@ import {
   normalizarTelefone,
   validarTelefone,
 } from "../../utils/whatsapp";
+import { alertaIW } from "../../utils/alertas";
 import "./Dashboard.css";
 
 function Dashboard() {
@@ -72,6 +73,70 @@ function Dashboard() {
         return contato;
       }),
     );
+  }
+
+  async function excluirContato(id) {
+    const resultado = await alertaIW.fire({
+      title: "Excluir contato?",
+      text: "O contato será removido permanentemente da lista.",
+      icon: "warning",
+      iconColor: "#C9A24B",
+      showCancelButton: true,
+      confirmButtonText: "Sim, excluir",
+      cancelButtonText: "Cancelar",
+      reverseButtons: true,
+      focusCancel: true,
+    });
+
+    if (!resultado.isConfirmed) return;
+
+    setContatos((anteriores) =>
+      anteriores.filter((contato) => contato.id !== id),
+    );
+
+    alertaIW.fire({
+      icon: "success",
+      title: "Contato excluído!",
+      text: "O contato foi removido com sucesso.",
+      showConfirmButton: false,
+      timer: 1500,
+      timerProgressBar: true,
+    });
+  }
+
+  async function limparContatos() {
+    if (contatos.length === 0) return;
+
+    const resultado = await alertaIW.fire({
+      title: "Limpar lista de contatos?",
+      html: `
+      <p>
+        Você está prestes a excluir
+        <strong>${contatos.length} contatos</strong>.
+      </p>
+      <p>Essa ação não poderá ser desfeita.</p>
+    `,
+      icon: "warning",
+      iconColor: "#C9A24B",
+      showCancelButton: true,
+      confirmButtonText: "Sim, limpar lista",
+      cancelButtonText: "Cancelar",
+      reverseButtons: true,
+      focusCancel: true,
+    });
+
+    if (!resultado.isConfirmed) return;
+
+    setContatos([]);
+
+    await alertaIW.fire({
+      icon: "success",
+      title: "Lista limpa!",
+      text: "Todos os contatos foram removidos.",
+      showConfirmButton: false,
+      timer: 1500,
+      timerProgressBar: true,
+    });
   }
 
   async function handleImportarArquivo(event) {
@@ -220,11 +285,11 @@ function Dashboard() {
           <div className="import-area">
             <h3>Cole sua lista de contatos</h3>
 
-            <p>Insira um contato por linha, no formato: Nome;Telefone</p>
+            <p>Insira um contato por linha, no formato: Nome;Telefone;Cidade</p>
 
             <textarea
               className="contacts-textarea"
-              placeholder={"Caroline;85992821874\nBianca;85991806975"}
+              placeholder={"Caroline;85992821874;Fortaleza\nBianca;85991806975;Eusebio"}
               value={listaTexto}
               onChange={(event) => setListaTexto(event.target.value)}
               rows={6}
@@ -254,7 +319,17 @@ function Dashboard() {
 
         {contatos.length > 0 && (
           <section className="contacts-section">
-            <h2>Contatos encontrados</h2>
+            <div className="contacts-header">
+              <h2>Contatos encontrados</h2>
+
+              <button
+                type="button"
+                className="btn-clear"
+                onClick={limparContatos}
+              >
+                Limpar lista
+              </button>
+            </div>
 
             <div className="contacts-filters">
               <input
@@ -333,6 +408,14 @@ function Dashboard() {
                     >
                       Abrir WhatsApp
                     </a>
+                    <button
+                      type="button"
+                      className="btn-delete"
+                      onClick={() => excluirContato(contato.id)}
+                      title="Excluir contato"
+                    >
+                      Excluir
+                    </button>
                   </div>
                 </div>
               ))}
@@ -342,7 +425,6 @@ function Dashboard() {
                   Nenhum contato encontrado para os filtros selecionados.
                 </p>
               )}
-              
             </div>
           </section>
         )}

@@ -378,3 +378,100 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.btn-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border: 1px solid #FECACA;
+  border-radius: 10px;
+  background: #FFF7F7;
+  color: #B91C1C;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-delete:hover {
+  background: #FEE2E2;
+  border-color: #FCA5A5;
+  transform: translateY(-1px);
+}
+
+.btn-delete:active {
+  transform: translateY(0);
+}
+
+.btn-delete:focus-visible {
+  outline: 3px solid #C9A24B;
+  outline-offset: 2px;
+}
+
+/* Cabeçalho da lista de contatos */
+
+.contacts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.contacts-header h2 {
+  margin-bottom: 0;
+}
+
+/* Botão Limpar Lista */
+
+.btn-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 18px;
+
+  background-color: #FFFFFF;
+  color: #B91C1C;
+  border: 1px solid #FECACA;
+  border-radius: 10px;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-clear:hover {
+  background-color: #FFF1F2;
+  border-color: #FCA5A5;
+  transform: translateY(-1px);
+}
+
+.btn-clear:active {
+  transform: translateY(0);
+}
+
+.btn-clear:focus-visible {
+  outline: 3px solid #C9A24B;
+  outline-offset: 2px;
+}
+
+/* Responsividade */
+
+@media (max-width: 600px) {
+  .contacts-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn-clear {
+    width: 100%;
+  }
+}
+
