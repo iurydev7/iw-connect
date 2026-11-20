@@ -8,6 +8,17 @@ import {
 import { alertaIW } from "../../utils/alertas";
 import LeadModal from "../../components/LeadModal/LeadModal";
 import "./Dashboard.css";
+import {
+  Users,
+  CircleCheck,
+  Clock3,
+  Upload,
+  MessageCircle,
+  Eye,
+  Trash2,
+  RotateCcw,
+  ClipboardList,
+} from "lucide-react";
 
 const STORAGE_KEY = "iw-connect-contatos";
 
@@ -299,22 +310,39 @@ function Dashboard() {
           className="dashboard-stats"
           aria-label="Indicadores comerciais"
         >
-          <div className="stat-card">
+          <div className="stat-card stat-total">
+            <div className="stat-icon">
+              <Users size={23} />
+            </div>
+
             <span>Total de contatos</span>
             <strong>{totalContatos}</strong>
           </div>
-          <div className="stat-card">
+
+          <div className="stat-card stat-contacted">
+            <div className="stat-icon">
+              <CircleCheck size={23} />
+            </div>
+
             <span>Contatados</span>
             <strong>{totalContatados}</strong>
           </div>
-          <div className="stat-card">
+
+          <div className="stat-card stat-pending">
+            <div className="stat-icon">
+              <Clock3 size={23} />
+            </div>
+
             <span>Pendentes</span>
             <strong>{totalPendentes}</strong>
           </div>
         </section>
 
         <section className="dashboard-import" id="importar">
-          <h2>Importar contatos</h2>
+          <h2>
+            <ClipboardList size={22} />
+            Importar contatos
+          </h2>
           <p>
             Adicione uma lista de contatos para gerar links diretos para o
             WhatsApp.
@@ -478,6 +506,7 @@ function Dashboard() {
                     className="btn-details"
                     onClick={() => setLeadSelecionadoId(contato.id)}
                   >
+                    <Eye size={16} />
                     Ver ficha
                   </button>
                   {validarTelefone(contato.telefone) ? (
