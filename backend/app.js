@@ -6,6 +6,15 @@ import authRoutes from "./routes/authRoutes.js";
 import leadRoutes from "./routes/leadRoutes.js";
 
 const app = express();
+app.get("/", (req, res) => {
+  return res.redirect("/api/health");
+});
+app.get("/api/health", (req, res) => {
+  return res.status(200).json({
+    status: "ok",
+    service: "IW Connect API",
+  });
+});
 
 app.disable("x-powered-by");
 
