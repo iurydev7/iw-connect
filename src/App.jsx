@@ -1,14 +1,53 @@
-
 import Header from "./components/Header/Header";
 import Dashboard from "./pages/Dashboard/Dashboard";
-import "./App.css";
+import Login from "./pages/Login/Login";
 
-function App() {
+import AuthProvider from "./context/AuthProvider";
+import { useAuth } from "./context/AuthContext";
+
+import "./App.css";
+import "./styles/theme.css";
+
+function AppContent() {
+  const {
+    isAuthenticated,
+    loading,
+    sessionError,
+  } = useAuth();
+
+  if (loading) {
+    return <p>Carregando...</p>;
+  }
+
+  if (sessionError) {
+    return (
+      <div>
+        <p>{sessionError}</p>
+
+        <button onClick={() => window.location.reload()}>
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
   return (
     <>
       <Header />
       <Dashboard />
     </>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
