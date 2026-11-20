@@ -1,25 +1,4 @@
-'use strict';
-const {
-  Model
-} = require('sequelize');
-module.exports = (sequelize, DataTypes) => {
-  class User extends Model {
-   
-    static associate(models) {
-
-    }
-  }
-  User.init({
-    name: DataTypes.STRING,
-    email: DataTypes.STRING,
-    passwordHash: DataTypes.STRING,
-    role: DataTypes.STRING
-  }, {
-    sequelize,
-    modelName: 'User',
-  });
-  return User;
-};import { DataTypes } from "sequelize";
+import { DataTypes } from "sequelize";
 import sequelize from "../config/database.js";
 
 const User = sequelize.define(
@@ -29,6 +8,7 @@ const User = sequelize.define(
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
+      allowNull: false,
     },
 
     name: {
@@ -55,9 +35,6 @@ const User = sequelize.define(
       type: DataTypes.STRING(20),
       allowNull: false,
       defaultValue: "consultor",
-      validate: {
-        isIn: [["admin", "consultor"]],
-      },
     },
   },
   {
