@@ -6,6 +6,7 @@ import AuthProvider from "./context/AuthProvider";
 import { useAuth } from "./context/AuthContext";
 
 import "./App.css";
+import "./styles/theme.css";
 
 function AppContent() {
   const {

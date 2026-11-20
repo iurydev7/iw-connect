@@ -1,7 +1,8 @@
-
 import { useState } from "react";
 import iconIW from "../../assets/branding/icone-branco.svg";
 import "./Header.css";
+import { UserRound, ChevronDown, LogOut } from "lucide-react";
+import { useAuth } from "../../context/AuthContext.js";
 
 const APP_VERSION = "0.1.0";
 
@@ -12,6 +13,25 @@ const menuItems = [
 ];
 
 function Header() {
+  const { user, logout } = useAuth();
+
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
+
+  const roleLabel = user?.role === "admin" ? "Administrador" : "Usuário";
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    setLogoutError("");
+
+    try {
+      await logout();
+    } catch {
+      setLogoutError("Não foi possível encerrar a sessão.");
+    } finally {
+      setLoggingOut(false);
+    }
+  }
   const [activeSection, setActiveSection] = useState("dashboard");
 
   function navegarPara(id) {
@@ -30,9 +50,7 @@ function Header() {
   return (
     <header className="header">
       <div className="header-container">
-
         <div className="header-top">
-
           {/* Identidade do sistema */}
           <a
             href="#dashboard"
@@ -43,11 +61,7 @@ function Header() {
               navegarPara("dashboard");
             }}
           >
-            <img
-              src={iconIW}
-              alt="IW"
-              className="header-icon"
-            />
+            <img src={iconIW} alt="IW" className="header-icon" />
 
             <div className="header-system">
               <div className="header-title-row">
@@ -55,9 +69,7 @@ function Header() {
                   Connect<span className="connect-dot">.</span>
                 </span>
 
-                <span className="header-version">
-                  v{APP_VERSION}
-                </span>
+                <span className="header-version">v{APP_VERSION}</span>
               </div>
 
               <span className="header-subtitle">
@@ -68,15 +80,48 @@ function Header() {
 
           {/* Área administrativa */}
           <div className="header-admin">
-            <span className="admin-label">
-              Área administrativa
-            </span>
+            <details className="header-profile">
+              <summary className="header-profile-trigger">
+                <div className="admin-avatar">
+                  <UserRound size={20} />
+                </div>
 
-            <div className="admin-avatar" aria-hidden="true">
-              <span>ADM</span>
-            </div>
+                <div className="header-profile-info">
+                  <strong>{user?.name}</strong>
+                  <span>{roleLabel}</span>
+                </div>
+
+                <ChevronDown size={16} />
+              </summary>
+
+              <div className="header-profile-menu">
+                <span className="profile-menu-label">MEU PERFIL</span>
+
+                <strong>{user?.name}</strong>
+                <span>{user?.email}</span>
+
+                <div className="profile-role">{roleLabel}</div>
+              </div>
+            </details>
+
+            <button
+              type="button"
+              className="header-logout"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              aria-label="Sair do sistema"
+            >
+              <LogOut size={18} />
+
+              <span>{loggingOut ? "Saindo..." : "Sair"}</span>
+            </button>
+
+            {logoutError && (
+              <p className="header-logout-error" role="alert">
+                {logoutError}
+              </p>
+            )}
           </div>
-
         </div>
 
         {/* Navegação */}
@@ -89,15 +134,12 @@ function Header() {
                 activeSection === item.id ? "nav-active" : ""
               }`}
               onClick={() => navegarPara(item.id)}
-              aria-current={
-                activeSection === item.id ? "location" : undefined
-              }
+              aria-current={activeSection === item.id ? "location" : undefined}
             >
               {item.label}
             </button>
           ))}
         </nav>
-
       </div>
     </header>
   );

@@ -1,0 +1,22 @@
+:root {
+  --iw-background: #061326;
+  --iw-navy: #0b1f4b;
+  --iw-surface: #172d48;
+  --iw-gold: #c9a24b;
+  --iw-gold-light: #f8ca62;
+
+  --iw-text: #ffffff;
+  --iw-text-secondary: #b7c4d6;
+
+  --iw-border: rgba(255, 255, 255, 0.15);
+  --iw-glass: rgba(17, 35, 58, 0.75);
+
+  --iw-gradient-gold: linear-gradient(
+    135deg,
+    #ffda75,
+    #c58a32
+  );
+
+  --iw-radius: 16px;
+  --iw-radius-lg: 28px;
+}
