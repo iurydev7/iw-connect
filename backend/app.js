@@ -3,6 +3,7 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import { sequelize } from "./models/index.js";
 import authRoutes from "./routes/authRoutes.js";
+import leadRoutes from "./routes/leadRoutes.js";
 
 const app = express();
 
@@ -12,6 +13,7 @@ app.use(helmet());
 app.use(express.json());
 app.use(cookieParser());
 app.use("/api/auth", authRoutes);
+app.use("/api/leads", leadRoutes);
 
 app.get("/api/health", async (req, res) => {
   try {
