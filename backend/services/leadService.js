@@ -246,31 +246,6 @@ export async function reservar(id, userId) {
 
   return lead;
 }
-
-export async function liberar(id, userId) {
-  await Lead.update(
-    {
-      responsavelId: null,
-    },
-    {
-      where: {
-        id,
-        responsavelId: userId,
-      },
-    }
-  );
-
-  const lead = await obterLead(id);
-
-  if (lead.responsavelId !== null) {
-    throw erro(
-      409,
-      "Você não é o responsável por este atendimento."
-    );
-  }
-
-  return lead;
-}
 export async function alterarStatus(id, userId, status) {
   if (!STATUS_VALIDOS.includes(status)) {
     throw erro(400, "Status inválido.");

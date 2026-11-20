@@ -40,14 +40,6 @@ export function reservar(req, res) {
     () => leadService.reservar(req.params.id, req.user.id)
   );
 }
-
-export function liberar(req, res) {
-  return executar(
-    res,
-    () => leadService.liberar(req.params.id, req.user.id)
-  );
-}
-
 export function alterarStatus(req, res) {
   return executar(
     res,

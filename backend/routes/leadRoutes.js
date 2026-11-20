@@ -12,8 +12,6 @@ router.post("/import", leadController.importar);
 
 router.patch("/:id/claim", leadController.reservar);
 
-router.patch("/:id/release", leadController.liberar);
-
 router.patch("/:id/status", leadController.alterarStatus);
 
 export default router;
