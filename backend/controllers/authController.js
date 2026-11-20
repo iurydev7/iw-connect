@@ -38,3 +38,8 @@ export async function login(req, res) {
     });
   }
 }
+export function me(req, res) {
+  res.set("Cache-Control", "no-store");
+
+  return res.status(200).json(req.user);
+}
