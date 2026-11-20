@@ -43,3 +43,30 @@ export function me(req, res) {
 
   return res.status(200).json(req.user);
 }
+export async function logout(req, res) {
+  try {
+    const token = req.cookies?.iw_session;
+
+    await authService.logout(token);
+
+    res.clearCookie("iw_session", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/"
+    });
+
+    res.set("Cache-Control", "no-store");
+
+    return res.status(200).json({
+      message: "Logout realizado com sucesso."
+    });
+
+  } catch (error) {
+    console.error("Erro no logout:", error);
+
+    return res.status(500).json({
+      message: "Erro interno do servidor."
+    });
+  }
+}
