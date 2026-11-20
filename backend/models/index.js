@@ -1,8 +1,9 @@
 import sequelize from "../config/database.js";
-import User from "./user.js";
-import Lead from "./lead.js";
 import Atendimento from "./atendimento.js";
 import Lembrete from "./lembrete.js";
+import Session from "./session.js";
+import User from "./user.js";
+import Lead from "./lead.js";
 
 User.hasMany(Lead, {
   foreignKey: "responsavelId",
@@ -64,10 +65,23 @@ Lembrete.belongsTo(User, {
   onDelete: "RESTRICT",
 });
 
+User.hasMany(Session, {
+  foreignKey: "userId",
+  as: "sessions",
+  onDelete: "CASCADE",
+});
+
+Session.belongsTo(User, {
+  foreignKey: "userId",
+  as: "user",
+  onDelete: "CASCADE",
+});
+
 export {
   sequelize,
   User,
   Lead,
   Atendimento,
   Lembrete,
+  Session,
 };
