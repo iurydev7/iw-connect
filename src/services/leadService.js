@@ -47,3 +47,17 @@ export function alterarStatus(id, status) {
     body: JSON.stringify({ status }),
   });
 }
+export function obterIndicadores() {
+  return apiRequest("/leads/metadata");
+}
+
+export function listarHistorico(id) {
+  return apiRequest(`/leads/${id}/history`);
+}
+
+export function salvarObservacao(id, observacao) {
+  return apiRequest(`/leads/${id}/observations`, {
+    method: "POST",
+    body: JSON.stringify({ observacao }),
+  });
+}

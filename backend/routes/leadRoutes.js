@@ -14,4 +14,10 @@ router.patch("/:id/claim", leadController.reservar);
 
 router.patch("/:id/status", leadController.alterarStatus);
 
+router.get("/metadata", leadController.obterIndicadores);
+
+router.get("/:id/history", leadController.listarHistorico);
+
+router.post("/:id/observations", leadController.salvarObservacao);
+
 export default router;

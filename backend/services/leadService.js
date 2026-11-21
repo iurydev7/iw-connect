@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Op, UniqueConstraintError } from "sequelize";
-import { Lead, User } from "../models/index.js";
+import { Lead, User, Atendimento } from "../models/index.js";
 
 const STATUS_VALIDOS = [
   "Pendente",
@@ -28,10 +28,7 @@ function normalizarTelefone(valor) {
 
   let numero = original.replace(/\D/g, "");
 
-  if (
-    numero.startsWith("55") &&
-    [12, 13].includes(numero.length)
-  ) {
+  if (numero.startsWith("55") && [12, 13].includes(numero.length)) {
     numero = numero.slice(2);
   }
 
@@ -46,11 +43,7 @@ const includeResponsavel = {
   attributes: ["id", "name"],
 };
 export async function importar(leads) {
-  if (
-    !Array.isArray(leads) ||
-    leads.length === 0 ||
-    leads.length > 500
-  ) {
+  if (!Array.isArray(leads) || leads.length === 0 || leads.length > 500) {
     throw erro(400, "Envie entre 1 e 500 leads.");
   }
 
@@ -182,14 +175,11 @@ export async function listar(filtros, userId) {
     where.responsavelId = null;
   }
 
-  const page = Math.max(
-    1,
-    parseInt(filtros.page, 10) || 1
-  );
+  const page = Math.max(1, parseInt(filtros.page, 10) || 1);
 
   const pageSize = Math.min(
     100,
-    Math.max(1, parseInt(filtros.pageSize, 10) || 50)
+    Math.max(1, parseInt(filtros.pageSize, 10) || 50),
   );
 
   const { count, rows } = await Lead.findAndCountAll({
@@ -232,16 +222,13 @@ export async function reservar(id, userId) {
         id,
         responsavelId: null,
       },
-    }
+    },
   );
 
   const lead = await obterLead(id);
 
   if (lead.responsavelId !== userId) {
-    throw erro(
-      409,
-      "Este lead já está sendo atendido por outro usuário."
-    );
+    throw erro(409, "Este lead já está sendo atendido por outro usuário.");
   }
 
   return lead;
@@ -267,11 +254,69 @@ export async function alterarStatus(id, userId, status) {
   const lead = await obterLead(id);
 
   if (lead.responsavelId !== userId) {
-    throw erro(
-      409,
-      "Assuma o atendimento antes de alterar o status."
-    );
+    throw erro(409, "Assuma o atendimento antes de alterar o status.");
   }
 
   return lead;
+}
+export async function obterIndicadores() {
+  const [total, contatados, pendentes, cidades] = await Promise.all([
+    Lead.count(),
+    Lead.count({
+      where: { status: "Contatado" },
+    }),
+    Lead.count({
+      where: { status: "Pendente" },
+    }),
+    Lead.findAll({
+      attributes: ["cidade"],
+      group: ["cidade"],
+      order: [["cidade", "ASC"]],
+      raw: true,
+    }),
+  ]);
+
+  return {
+    total,
+    contatados,
+    pendentes,
+    cidades: cidades.map((item) => item.cidade).filter(Boolean),
+  };
+}
+
+export async function listarHistorico(id, userId) {
+  const lead = await obterLead(id);
+
+  if (lead.responsavelId !== userId) {
+    throw erro(403, "Você não é o responsável por este lead.");
+  }
+
+  return Atendimento.findAll({
+    where: {
+      leadId: id,
+    },
+    order: [["createdAt", "DESC"]],
+    limit: 100,
+  });
+}
+
+export async function salvarObservacao(id, userId, observacao) {
+  const lead = await obterLead(id);
+
+  if (lead.responsavelId !== userId) {
+    throw erro(403, "Você não é o responsável por este lead.");
+  }
+
+  const description = texto(observacao);
+
+  if (!description || description.length > 2000) {
+    throw erro(400, "Informe uma observação de até 2000 caracteres.");
+  }
+
+  return Atendimento.create({
+    leadId: id,
+    userId,
+    type: "observacao",
+    description,
+  });
 }
