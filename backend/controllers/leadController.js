@@ -51,3 +51,31 @@ export function alterarStatus(req, res) {
       )
   );
 }
+export function obterIndicadores(req, res) {
+  return executar(
+    res,
+    () => leadService.obterIndicadores()
+  );
+}
+
+export function listarHistorico(req, res) {
+  return executar(
+    res,
+    () => leadService.listarHistorico(
+      req.params.id,
+      req.user.id
+    )
+  );
+}
+
+export function salvarObservacao(req, res) {
+  return executar(
+    res,
+    () => leadService.salvarObservacao(
+      req.params.id,
+      req.user.id,
+      req.body?.observacao
+    ),
+    201
+  );
+}
