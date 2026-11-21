@@ -30,7 +30,7 @@ export function importar(req, res) {
 export function listar(req, res) {
   return executar(
     res,
-    () => leadService.listar(req.query, req.user.id)
+    () => leadService.listar(req.query, req.user)
   );
 }
 
@@ -54,7 +54,7 @@ export function alterarStatus(req, res) {
 export function obterIndicadores(req, res) {
   return executar(
     res,
-    () => leadService.obterIndicadores()
+    () => leadService.obterIndicadores(req.user)
   );
 }
 

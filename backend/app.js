@@ -4,6 +4,7 @@ import helmet from "helmet";
 import { sequelize } from "./models/index.js";
 import authRoutes from "./routes/authRoutes.js";
 import leadRoutes from "./routes/leadRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
 
 const app = express();
 app.get("/", (req, res) => {
@@ -23,6 +24,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 app.use("/api/leads", leadRoutes);
+app.use("/api/users", userRoutes);
 
 app.get("/api/health", async (req, res) => {
   try {

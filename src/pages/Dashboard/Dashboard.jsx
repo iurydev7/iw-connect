@@ -38,7 +38,7 @@ const FILTROS_INICIAIS = {
   status: "",
   dataEntrada: "",
   dataContato: "",
-  responsavel: "",
+  responsavel: "livres",
 };
 
 const PAGE_SIZE = 50;
@@ -46,12 +46,13 @@ const PAGE_SIZE = 50;
 function contatoDaPlanilha(linha, index) {
   const campos = Object.fromEntries(
     Object.entries(linha).map(([chave, valor]) => [
-      chave.normalize("NFD")
+      chave
+        .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .trim()
         .toLowerCase(),
       valor,
-    ])
+    ]),
   );
 
   return {
@@ -65,6 +66,7 @@ function contatoDaPlanilha(linha, index) {
 
 function Dashboard() {
   const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   const [listaTexto, setListaTexto] = useState("");
   const [contatos, setContatos] = useState([]);
@@ -84,17 +86,15 @@ function Dashboard() {
     total: 0,
     contatados: 0,
     pendentes: 0,
+    disponiveis: 0,
     cidades: [],
   });
 
   const leadSelecionado = contatos.find(
-    (contato) => contato.id === leadSelecionadoId
+    (contato) => contato.id === leadSelecionadoId,
   );
 
-  const totalPaginas = Math.max(
-    1,
-    Math.ceil(totalFiltrado / PAGE_SIZE)
-  );
+  const totalPaginas = Math.max(1, Math.ceil(totalFiltrado / PAGE_SIZE));
 
   useEffect(() => {
     let ativo = true;
@@ -124,13 +124,12 @@ function Dashboard() {
 
         const ultimaPagina = Math.max(
           1,
-          Math.ceil(resultado.total / PAGE_SIZE)
+          Math.ceil(resultado.total / PAGE_SIZE),
         );
 
         if (pagina > ultimaPagina) {
           setPagina(ultimaPagina);
         }
-
       } catch (error) {
         if (ativo) setErroConsulta(error.message);
       } finally {
@@ -164,7 +163,11 @@ function Dashboard() {
   }
 
   function limparFiltros() {
-    setFiltros(FILTROS_INICIAIS);
+    setFiltros((anteriores) => ({
+      ...FILTROS_INICIAIS,
+      responsavel: anteriores.responsavel,
+    }));
+
     setPagina(1);
   }
 
@@ -183,9 +186,7 @@ function Dashboard() {
   async function processarContatos() {
     if (importando) return;
 
-    const linhas = listaTexto
-      .split(/\r?\n/)
-      .filter((linha) => linha.trim());
+    const linhas = listaTexto.split(/\r?\n/).filter((linha) => linha.trim());
 
     if (!linhas.length) {
       return alertaIW.fire({
@@ -199,20 +200,14 @@ function Dashboard() {
 
     try {
       const leads = linhas.map((linha) => {
-        const [
-          nome = "",
-          telefone = "",
-          cidade = "",
-          uf = "",
-          bairro = "",
-        ] = linha.split(";");
+        const [nome = "", telefone = "", cidade = "", uf = "", bairro = ""] =
+          linha.split(";");
 
         return { nome, telefone, cidade, uf, bairro };
       });
 
       await enviarLeads(leads);
       setListaTexto("");
-
     } catch (error) {
       await alertaIW.fire({
         icon: "error",
@@ -235,7 +230,6 @@ function Dashboard() {
       const linhas = await importarPlanilha(arquivo);
 
       await enviarLeads(linhas.map(contatoDaPlanilha));
-
     } catch (error) {
       await alertaIW.fire({
         icon: "error",
@@ -257,9 +251,15 @@ function Dashboard() {
       const leadAtualizado = await operacao();
 
       setContatos((anteriores) =>
-        anteriores.map((lead) =>
-          lead.id === id ? leadAtualizado : lead
-        )
+        anteriores
+          .map((lead) => (lead.id === id ? leadAtualizado : lead))
+          .filter((lead) => {
+            if (filtros.responsavel === "livres" && lead.responsavelId) {
+              return false;
+            }
+
+            return true;
+          }),
       );
     } catch (error) {
       await alertaIW.fire({
@@ -274,103 +274,122 @@ function Dashboard() {
   }
 
   function assumirLead(id) {
-    return executarAcao(
-      id,
-      () => leadService.reservar(id)
-    );
+    return executarAcao(id, () => leadService.reservar(id));
   }
 
   function alterarStatus(id, status) {
-    return executarAcao(
-      id,
-      () => leadService.alterarStatus(id, status)
-    );
+    return executarAcao(id, () => leadService.alterarStatus(id, status));
   }
 
   return (
     <main className="dashboard" id="dashboard">
       <div className="dashboard-container">
-
         <section className="dashboard-heading">
-          <span className="dashboard-label">
-            PAINEL DE CONTROLE
-          </span>
+          <span className="dashboard-label">PAINEL DE CONTROLE</span>
           <h1>Gestão de leads</h1>
           <p>Organize e acompanhe sua operação comercial.</p>
         </section>
 
         <section className="dashboard-stats">
-
-          <div className="stat-card stat-total">
-            <div className="stat-icon"><Users /></div>
-            <span>Total de contatos</span>
-            <strong>{indicadores.total}</strong>
-          </div>
-
-          <div className="stat-card stat-contacted">
-            <div className="stat-icon"><CircleCheck /></div>
-            <span>Contatados</span>
-            <strong>{indicadores.contatados}</strong>
-          </div>
-
-          <div className="stat-card stat-pending">
-            <div className="stat-icon"><Clock3 /></div>
-            <span>Pendentes</span>
-            <strong>{indicadores.pendentes}</strong>
-          </div>
-
-        </section>
-
-        <section className="dashboard-import" id="importar">
-          <h2>Importar contatos</h2>
-          <p>Adicione novos leads à carteira comercial.</p>
-
-          <div className="import-area">
-            <h3>Cole sua lista de contatos</h3>
-            <p>Nome;Telefone;Cidade;UF;Bairro</p>
-
-            <textarea
-              className="contacts-textarea"
-              placeholder="Maria;85999990001;Fortaleza;CE;Centro"
-              value={listaTexto}
-              onChange={(e) => setListaTexto(e.target.value)}
-              rows={5}
-            />
-
-            <button
-              type="button"
-              className="btn-process"
-              disabled={importando}
-              onClick={processarContatos}
-            >
-              Importar contatos digitados
-            </button>
-
-            <div className="upload-divider">
-              <span>OU</span>
+          <button
+            type="button"
+            className="stat-card stat-total"
+            onClick={() => abrirCarteira(isAdmin ? "" : "meus")}
+          >
+            <div className="stat-icon">
+              <Users />
             </div>
 
-            <label
-              className="btn-upload"
-              htmlFor="arquivo-contatos"
-            >
-              <Upload size={17} />
-              {importando ? "Importando..." : "Importar Excel ou CSV"}
-            </label>
+            <span>{isAdmin ? "Total de contatos" : "Minha carteira"}</span>
 
-            <input
-              id="arquivo-contatos"
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              onChange={handleImportarArquivo}
-              className="file-input"
-              disabled={importando}
-            />
-          </div>
+            <strong>{indicadores.total}</strong>
+          </button>
+
+          <button
+            type="button"
+            className="stat-card stat-contacted"
+            onClick={() => abrirCarteira(isAdmin ? "" : "meus", "Contatado")}
+          >
+            <div className="stat-icon">
+              <CircleCheck />
+            </div>
+            <span>Contatados</span>
+            <strong>{indicadores.contatados}</strong>
+          </button>
+
+          <button
+            type="button"
+            className="stat-card stat-pending"
+            onClick={() => abrirCarteira(isAdmin ? "" : "meus", "Pendente")}
+          >
+            <div className="stat-icon">
+              <Clock3 />
+            </div>
+            <span>Pendentes</span>
+            <strong>{indicadores.pendentes}</strong>
+          </button>
+
+          <button
+            type="button"
+            className="stat-card stat-available"
+            onClick={() => abrirCarteira("livres")}
+          >
+            <div className="stat-icon">
+              <UserPlus />
+            </div>
+            <span>Disponíveis</span>
+            <strong>{indicadores.disponiveis}</strong>
+          </button>
         </section>
 
-        <section className="contacts-section" id="contatos">
+        {isAdmin && (
+          <section className="dashboard-import" id="importar">
+            <h2>Importar contatos</h2>
+            <p>Adicione novos leads à carteira comercial.</p>
 
+            <div className="import-area">
+              <h3>Cole sua lista de contatos</h3>
+              <p>Nome;Telefone;Cidade;UF;Bairro</p>
+
+              <textarea
+                className="contacts-textarea"
+                placeholder="Maria;85999990001;Fortaleza;CE;Centro"
+                value={listaTexto}
+                onChange={(e) => setListaTexto(e.target.value)}
+                rows={5}
+              />
+
+              <button
+                type="button"
+                className="btn-process"
+                disabled={importando}
+                onClick={processarContatos}
+              >
+                Importar contatos digitados
+              </button>
+
+              <div className="upload-divider">
+                <span>OU</span>
+              </div>
+
+              <label className="btn-upload" htmlFor="arquivo-contatos">
+                <Upload size={17} />
+                {importando ? "Importando..." : "Importar Excel ou CSV"}
+              </label>
+
+              <input
+                id="arquivo-contatos"
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleImportarArquivo}
+                className="file-input"
+                disabled={importando}
+              />
+            </div>
+          </section>
+        )}
+
+        <section className="contacts-section" id="contatos">
           <div className="contacts-header">
             <div>
               <h2>Carteira de leads</h2>
@@ -379,9 +398,37 @@ function Dashboard() {
               </p>
             </div>
           </div>
+          <div className="wallet-tabs">
+            <button
+              type="button"
+              className={
+                filtros.responsavel === "livres" ? "wallet-active" : ""
+              }
+              onClick={() => abrirCarteira("livres")}
+            >
+              Leads disponíveis
+            </button>
+
+            <button
+              type="button"
+              className={filtros.responsavel === "meus" ? "wallet-active" : ""}
+              onClick={() => abrirCarteira("meus")}
+            >
+              Minha carteira
+            </button>
+
+            {isAdmin && (
+              <button
+                type="button"
+                className={filtros.responsavel === "" ? "wallet-active" : ""}
+                onClick={() => abrirCarteira("")}
+              >
+                Todos os leads
+              </button>
+            )}
+          </div>
 
           <div className="contacts-filters">
-
             <div className="filter-group">
               <label htmlFor="busca">Pesquisar lead</label>
               <input
@@ -417,7 +464,9 @@ function Dashboard() {
                 maxLength={2}
                 placeholder="Ex.: CE"
                 value={filtros.uf}
-                onChange={(e) => alterarFiltro("uf", e.target.value.toUpperCase())}
+                onChange={(e) =>
+                  alterarFiltro("uf", e.target.value.toUpperCase())
+                }
               />
             </div>
 
@@ -450,14 +499,20 @@ function Dashboard() {
 
             <div className="filter-group">
               <label htmlFor="responsavel">Responsável</label>
+
               <select
                 id="responsavel"
                 value={filtros.responsavel}
                 onChange={(e) => alterarFiltro("responsavel", e.target.value)}
               >
-                <option value="">Todos os leads</option>
-                <option value="meus">Meus atendimentos</option>
-                <option value="livres">Disponíveis</option>
+                {isAdmin && (
+                  <>
+                    <option value="">Todos os leads</option>
+                    <option value="livres">Não distribuídos</option>
+                  </>
+                )}
+
+                <option value="meus">Minha carteira</option>
               </select>
             </div>
 
@@ -480,18 +535,12 @@ function Dashboard() {
                 onChange={(e) => alterarFiltro("dataContato", e.target.value)}
               />
             </div>
-
           </div>
 
           <div className="filter-footer">
-            <p className="filter-result">
-              {totalFiltrado} leads encontrados
-            </p>
+            <p className="filter-result">{totalFiltrado} leads encontrados</p>
 
-            <button
-              className="btn-reset-filters"
-              onClick={limparFiltros}
-            >
+            <button className="btn-reset-filters" onClick={limparFiltros}>
               <RotateCcw size={15} />
               Limpar filtros
             </button>
@@ -499,22 +548,18 @@ function Dashboard() {
 
           {carregando && <p>Carregando leads...</p>}
 
-          {erroConsulta && (
-            <p role="alert">{erroConsulta}</p>
-          )}
+          {erroConsulta && <p role="alert">{erroConsulta}</p>}
 
           <div className="contacts-list">
-
-            {!carregando && !erroConsulta &&
+            {!carregando &&
+              !erroConsulta &&
               contatos.map((contato) => {
-                const meuLead =
-                  contato.responsavelId === user?.id;
+                const meuLead = contato.responsavelId === user?.id;
 
                 const disponivel = !contato.responsavelId;
 
                 return (
                   <article className="contact-item" key={contato.id}>
-
                     <div className="contact-info">
                       <strong>{contato.nome}</strong>
                       <span>{contato.telefone}</span>
@@ -524,7 +569,8 @@ function Dashboard() {
                         {contato.uf ? ` - ${contato.uf}` : ""}
                       </span>
 
-                      <span className="lead-status"
+                      <span
+                        className="lead-status"
                         data-status={contato.status}
                       >
                         {contato.status}
@@ -538,7 +584,6 @@ function Dashboard() {
                     </div>
 
                     <div className="contact-actions">
-
                       {disponivel && (
                         <button
                           className="btn-claim"
@@ -570,9 +615,7 @@ function Dashboard() {
 
                           <button
                             className="btn-details"
-                            onClick={() =>
-                              setLeadSelecionadoId(contato.id)
-                            }
+                            onClick={() => setLeadSelecionadoId(contato.id)}
                           >
                             <Eye size={16} />
                             Ver ficha
@@ -583,7 +626,7 @@ function Dashboard() {
                               className="btn-whatsapp"
                               href={gerarLinkWhatsApp(
                                 contato.telefone,
-                                contato.nome
+                                contato.nome,
                               )}
                               target="_blank"
                               rel="noopener noreferrer"
@@ -601,18 +644,14 @@ function Dashboard() {
                           Em atendimento
                         </span>
                       )}
-
                     </div>
                   </article>
                 );
               })}
 
             {!carregando && !erroConsulta && !contatos.length && (
-              <p className="empty-filter">
-                Nenhum lead encontrado.
-              </p>
+              <p className="empty-filter">Nenhum lead encontrado.</p>
             )}
-
           </div>
 
           <div className="lead-pagination">
@@ -623,7 +662,9 @@ function Dashboard() {
               Anterior
             </button>
 
-            <span>Página {pagina} de {totalPaginas}</span>
+            <span>
+              Página {pagina} de {totalPaginas}
+            </span>
 
             <button
               disabled={pagina >= totalPaginas}
@@ -632,7 +673,6 @@ function Dashboard() {
               Próxima
             </button>
           </div>
-
         </section>
       </div>
 
@@ -644,9 +684,23 @@ function Dashboard() {
           onSaveObservation={leadService.salvarObservacao}
         />
       )}
-
     </main>
   );
 }
 
+function abrirCarteira(responsavel, status = "") {
+  setFiltros({
+    ...FILTROS_INICIAIS,
+    responsavel,
+    status,
+  });
+
+  setPagina(1);
+  setCarregando(true);
+
+  document.getElementById("contatos")?.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+}
 export default Dashboard;

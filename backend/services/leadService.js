@@ -130,7 +130,7 @@ function intervaloData(valor) {
   };
 }
 
-export async function listar(filtros, userId) {
+export async function listar(filtros, user) {
   const where = {};
 
   const busca = texto(filtros.busca);
@@ -168,10 +168,8 @@ export async function listar(filtros, userId) {
   }
 
   if (filtros.responsavel === "meus") {
-    where.responsavelId = userId;
-  }
-
-  if (filtros.responsavel === "livres") {
+    where.responsavelId = user.id;
+  } else if (filtros.responsavel === "livres" || user.role !== "admin") {
     where.responsavelId = null;
   }
 
@@ -259,31 +257,58 @@ export async function alterarStatus(id, userId, status) {
 
   return lead;
 }
-export async function obterIndicadores() {
-  const [total, contatados, pendentes, cidades] = await Promise.all([
-    Lead.count(),
-    Lead.count({
-      where: { status: "Contatado" },
-    }),
-    Lead.count({
-      where: { status: "Pendente" },
-    }),
-    Lead.findAll({
-      attributes: ["cidade"],
-      group: ["cidade"],
-      order: [["cidade", "ASC"]],
-      raw: true,
-    }),
-  ]);
+export async function obterIndicadores(user) {
+  const admin = user.role === "admin";
+
+  const carteira = admin ? {} : { responsavelId: user.id };
+
+  const visiveis = admin
+    ? {}
+    : {
+        [Op.or]: [{ responsavelId: null }, { responsavelId: user.id }],
+      };
+
+  const [total, contatados, pendentes, disponiveis, cidades] =
+    await Promise.all([
+      Lead.count({
+        where: carteira,
+      }),
+
+      Lead.count({
+        where: {
+          ...carteira,
+          status: "Contatado",
+        },
+      }),
+
+      Lead.count({
+        where: {
+          ...carteira,
+          status: "Pendente",
+        },
+      }),
+
+      Lead.count({
+        where: { responsavelId: null },
+      }),
+
+      Lead.findAll({
+        attributes: ["cidade"],
+        where: visiveis,
+        group: ["cidade"],
+        order: [["cidade", "ASC"]],
+        raw: true,
+      }),
+    ]);
 
   return {
     total,
     contatados,
     pendentes,
+    disponiveis,
     cidades: cidades.map((item) => item.cidade).filter(Boolean),
   };
 }
-
 export async function listarHistorico(id, userId) {
   const lead = await obterLead(id);
 
