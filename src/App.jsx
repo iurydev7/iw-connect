@@ -1,12 +1,35 @@
+import { useState } from "react";
 import Header from "./components/Header/Header";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import Login from "./pages/Login/Login";
-
+import AdminUsers from "./pages/AdminUsers/AdminUsers";
 import AuthProvider from "./context/AuthProvider";
 import { useAuth } from "./context/AuthContext";
 
 import "./App.css";
 import "./styles/theme.css";
+
+function AreaLogada() {
+  const { user } = useAuth();
+
+  const [pagina, setPagina] = useState("dashboard");
+
+  const isAdmin = user?.role === "admin";
+
+  const exibirEquipe = isAdmin && pagina === "equipe";
+
+  return (
+    <>
+      <Header
+        onOpenUsers={() => setPagina("equipe")}
+        onOpenDashboard={() => setPagina("dashboard")}
+        showNav={!exibirEquipe}
+      />
+
+      {exibirEquipe ? <AdminUsers /> : <Dashboard />}
+    </>
+  );
+}
 
 function AppContent() {
   const {
@@ -35,12 +58,7 @@ function AppContent() {
     return <Login />;
   }
 
-  return (
-    <>
-      <Header />
-      <Dashboard />
-    </>
-  );
+  return <AreaLogada />;
 }
 
 function App() {

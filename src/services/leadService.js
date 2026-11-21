@@ -35,9 +35,13 @@ export async function importar(leads) {
   return total;
 }
 
-export function reservar(id) {
-  return apiRequest(`/leads/${id}/claim`, {
-    method: "PATCH",
+export function distribuir(leadIds, consultorId) {
+  return apiRequest("/leads/distribute", {
+    method: "POST",
+    body: JSON.stringify({
+      leadIds,
+      consultorId,
+    }),
   });
 }
 
@@ -45,5 +49,19 @@ export function alterarStatus(id, status) {
   return apiRequest(`/leads/${id}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
+  });
+}
+export function obterIndicadores() {
+  return apiRequest("/leads/metadata");
+}
+
+export function listarHistorico(id) {
+  return apiRequest(`/leads/${id}/history`);
+}
+
+export function salvarObservacao(id, observacao) {
+  return apiRequest(`/leads/${id}/observations`, {
+    method: "POST",
+    body: JSON.stringify({ observacao }),
   });
 }

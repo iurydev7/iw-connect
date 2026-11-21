@@ -199,3 +199,43 @@
     width: 100%;
   }
 }
+.history-item {
+  position: relative;
+  margin-top: 14px;
+  padding: 16px;
+
+  border: 1px solid var(--iw-border);
+  border-left: 3px solid var(--iw-gold);
+  border-radius: 10px;
+
+  background: rgba(6, 19, 38, 0.45);
+}
+
+.history-date {
+  display: block;
+  color: var(--iw-gold-light);
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.history-item p {
+  margin: 0;
+  color: var(--iw-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.lead-save-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lead-save-error {
+  padding: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 10px;
+  color: #fca5a5;
+  font-size: 13px;
+}

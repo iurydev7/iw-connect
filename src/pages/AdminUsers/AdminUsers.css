@@ -1,0 +1,348 @@
+.admin-users {
+  min-height: 85vh;
+  padding: 36px 24px 60px;
+  background: #061326;
+  color: #ffffff;
+}
+
+.admin-users-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.team-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.team-label {
+  color: #f8ca62;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.team-heading h1 {
+  margin: 10px 0;
+  font-size: clamp(24px, 3vw, 32px);
+}
+
+.team-heading p {
+  color: #9fb1c9;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Indicadores */
+
+.team-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.team-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px;
+  border: 1px solid #34465e;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #172d48, #112238);
+}
+
+.team-stat-card svg {
+  color: #f8ca62;
+}
+
+.team-stat-card span {
+  color: #9fb1c9;
+  font-size: 13px;
+}
+
+.team-stat-card strong {
+  color: #f8ca62;
+  font-size: 30px;
+}
+
+/* Painéis */
+
+.team-panel {
+  padding: 26px;
+  margin-bottom: 24px;
+  border: 1px solid #34465e;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #13263e, #0d1e31);
+}
+
+.team-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+.team-panel-header h2 {
+  margin: 0;
+  font-size: 19px;
+}
+
+/* Botões */
+
+.team-primary-button,
+.team-secondary-button,
+.team-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 11px 18px;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.team-primary-button {
+  border: 1px solid #e5b955;
+  background: linear-gradient(110deg, #f8d875, #c18b31);
+  color: #101827;
+}
+
+.team-secondary-button,
+.team-icon-button {
+  border: 1px solid #b08d47;
+  background: rgba(201, 162, 75, 0.06);
+  color: #f8ca62;
+}
+
+.team-icon-button {
+  padding: 8px;
+}
+
+.team-primary-button:hover,
+.team-secondary-button:hover,
+.team-icon-button:hover {
+  opacity: 0.8;
+}
+
+.admin-users button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.admin-users button:focus-visible {
+  outline: 2px solid #f8ca62;
+  outline-offset: 3px;
+}
+
+/* Formulário */
+
+.team-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.team-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.team-field label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.team-field small {
+  color: #9fb1c9;
+  font-size: 11px;
+}
+
+.team-field input,
+.team-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid #34465e;
+  border-radius: 9px;
+  background: #0b192c;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+}
+
+.team-field input:focus,
+.team-search input:focus {
+  border-color: #c9a24b;
+}
+
+.team-form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* Pesquisa */
+
+.team-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 0 14px;
+  border: 1px solid #34465e;
+  border-radius: 9px;
+  background: #0b192c;
+  color: #9fb1c9;
+}
+
+.team-search input {
+  padding-left: 0;
+  border: none;
+  background: transparent;
+}
+
+.team-search:focus-within {
+  border-color: #c9a24b;
+}
+
+/* Lista de usuários */
+
+.team-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.team-user {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid #34465e;
+  border-radius: 12px;
+  background: #0c1b2d;
+}
+
+.team-user-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  border: 1px solid rgba(201, 162, 75, 0.25);
+  border-radius: 12px;
+  background: rgba(201, 162, 75, 0.1);
+  color: #f8ca62;
+}
+
+.team-user-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}
+
+.team-user-info strong {
+  font-size: 14px;
+}
+
+.team-user-info > span {
+  color: #9fb1c9;
+  font-size: 12px;
+}
+
+.team-user-info .team-role {
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.team-user-info .team-role-admin {
+  background: rgba(201, 162, 75, 0.15);
+  color: #f8ca62;
+}
+
+.team-user-info .team-role-consultor {
+  background: rgba(96, 165, 250, 0.12);
+  color: #93c5fd;
+}
+
+/* Mensagens */
+
+.team-feedback {
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  border: 1px solid;
+  border-radius: 9px;
+  font-size: 13px;
+}
+
+.team-error {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+.team-success {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: #166534;
+  color: #86efac;
+}
+
+.team-empty {
+  padding: 24px;
+  text-align: center;
+  color: #9fb1c9;
+  font-size: 13px;
+}
+
+/* Responsividade */
+
+@media (max-width: 600px) {
+  .admin-users {
+    padding: 24px 16px;
+  }
+
+  .team-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .team-stats,
+  .team-form {
+    grid-template-columns: 1fr;
+  }
+
+  .team-panel {
+    padding: 18px;
+  }
+
+  .team-user {
+    flex-wrap: wrap;
+  }
+
+  .team-user > button {
+    width: 100%;
+  }
+
+  .team-form-actions {
+    flex-direction: column;
+  }
+}

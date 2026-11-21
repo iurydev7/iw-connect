@@ -30,7 +30,7 @@ export function importar(req, res) {
 export function listar(req, res) {
   return executar(
     res,
-    () => leadService.listar(req.query, req.user.id)
+    () => leadService.listar(req.query, req.user)
   );
 }
 
@@ -49,5 +49,43 @@ export function alterarStatus(req, res) {
         req.user.id,
         req.body?.status
       )
+  );
+}
+export function obterIndicadores(req, res) {
+  return executar(
+    res,
+    () => leadService.obterIndicadores(req.user)
+  );
+}
+
+export function listarHistorico(req, res) {
+  return executar(
+    res,
+    () => leadService.listarHistorico(
+      req.params.id,
+      req.user.id
+    )
+  );
+}
+
+export function salvarObservacao(req, res) {
+  return executar(
+    res,
+    () => leadService.salvarObservacao(
+      req.params.id,
+      req.user.id,
+      req.body?.observacao
+    ),
+    201
+  );
+}
+export function distribuir(req, res) {
+  return executar(
+    res,
+    () => leadService.distribuir(
+      req.body?.leadIds,
+      req.body?.consultorId,
+      req.user.id
+    )
   );
 }

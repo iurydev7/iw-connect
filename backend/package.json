@@ -15,7 +15,8 @@
     "db:undo": "sequelize-cli db:migrate:undo --config config/config.cjs",
     "db:generate": "sequelize-cli migration:generate",
     "model:generate": "sequelize-cli model:generate",
-    "user:create-admin": "node scripts/create-admin.js"
+    "user:create-admin": "node scripts/create-admin.js",
+    "db:normalize-leads": "node scripts/normalizarLeads.js"
   },
   "keywords": [],
   "author": "",

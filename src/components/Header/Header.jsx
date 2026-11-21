@@ -12,7 +12,7 @@ const menuItems = [
   { id: "importar", label: "Importar contatos" },
 ];
 
-function Header() {
+function Header({ onOpenUsers, onOpenDashboard, showNav = true }) {
   const { user, logout } = useAuth();
 
   const [loggingOut, setLoggingOut] = useState(false);
@@ -35,6 +35,12 @@ function Header() {
   const [activeSection, setActiveSection] = useState("dashboard");
 
   function navegarPara(id) {
+    if (!showNav) {
+      onOpenDashboard();
+      setActiveSection("dashboard");
+      return;
+    }
+
     const destino = document.getElementById(id);
 
     if (!destino) return;
@@ -126,19 +132,42 @@ function Header() {
 
         {/* Navegação */}
         <nav className="header-nav" aria-label="Navegação principal">
-          {menuItems.map((item) => (
+          {showNav ? (
+            menuItems
+              .filter(
+                (item) => user?.role === "admin" || item.id !== "importar",
+              )
+              .map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`nav-link ${
+                    activeSection === item.id ? "nav-active" : ""
+                  }`}
+                  onClick={() => navegarPara(item.id)}
+                >
+                  {item.label}
+                </button>
+              ))
+          ) : (
             <button
-              key={item.id}
               type="button"
-              className={`nav-link ${
-                activeSection === item.id ? "nav-active" : ""
-              }`}
-              onClick={() => navegarPara(item.id)}
-              aria-current={activeSection === item.id ? "location" : undefined}
+              className="nav-link"
+              onClick={() => navegarPara("dashboard")}
             >
-              {item.label}
+              Voltar ao Dashboard
             </button>
-          ))}
+          )}
+
+          {user?.role === "admin" && (
+            <button
+              type="button"
+              className={`nav-link ${!showNav ? "nav-active" : ""}`}
+              onClick={onOpenUsers}
+            >
+              Gerenciar equipe
+            </button>
+          )}
         </nav>
       </div>
     </header>
