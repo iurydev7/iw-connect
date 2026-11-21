@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { Op, UniqueConstraintError } from "sequelize";
-import { Lead, User, Atendimento } from "../models/index.js";
+import { sequelize, Lead, User, Atendimento } from "../models/index.js";
+import {
+  normalizarNome,
+  normalizarLocalidade,
+} from "../utils/normalizarDados.js";
 
 const STATUS_VALIDOS = [
   "Pendente",
@@ -42,6 +46,9 @@ const includeResponsavel = {
   as: "responsavel",
   attributes: ["id", "name"],
 };
+
+// IMPORTAÇÃO DE LEADS
+
 export async function importar(leads) {
   if (!Array.isArray(leads) || leads.length === 0 || leads.length > 500) {
     throw erro(400, "Envie entre 1 e 500 leads.");
@@ -52,12 +59,15 @@ export async function importar(leads) {
   let invalidos = 0;
 
   async function salvar(item) {
-    const nome = texto(item?.nome);
-    const telefone = normalizarTelefone(item?.telefone);
-    const cidade = texto(item?.cidade) || "Não informada";
-    const uf = texto(item?.uf).toUpperCase() || null;
-    const bairro = texto(item?.bairro) || null;
+    const nome = normalizarNome(item?.nome);
 
+    const telefone = normalizarTelefone(item?.telefone);
+
+    const cidade = normalizarLocalidade(item?.cidade) || "NÃO INFORMADA";
+
+    const uf = normalizarLocalidade(item?.uf) || null;
+
+    const bairro = normalizarLocalidade(item?.bairro) || null;
     if (
       !nome ||
       !telefone ||
@@ -108,6 +118,9 @@ export async function importar(leads) {
     invalidos,
   };
 }
+
+// TRATAMENTO DOS FILTROS DE DATA
+
 function intervaloData(valor) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(valor)) {
     throw erro(400, "Data inválida.");
@@ -130,13 +143,15 @@ function intervaloData(valor) {
   };
 }
 
-export async function listar(filtros, userId) {
+// LISTAGEM DE LEADS
+
+export async function listar(filtros, user) {
   const where = {};
 
   const busca = texto(filtros.busca);
-  const cidade = texto(filtros.cidade);
-  const uf = texto(filtros.uf).toUpperCase();
-  const bairro = texto(filtros.bairro);
+  const cidade = normalizarLocalidade(filtros.cidade);
+  const uf = normalizarLocalidade(filtros.uf);
+  const bairro = normalizarLocalidade(filtros.bairro);
   const status = texto(filtros.status);
 
   if (busca) {
@@ -167,11 +182,13 @@ export async function listar(filtros, userId) {
     where.dataContatado = intervaloData(filtros.dataContato);
   }
 
-  if (filtros.responsavel === "meus") {
-    where.responsavelId = userId;
-  }
+  // Controle de acesso à carteira comercial
 
-  if (filtros.responsavel === "livres") {
+  if (user.role !== "admin") {
+    where.responsavelId = user.id;
+  } else if (filtros.responsavel === "meus") {
+    where.responsavelId = user.id;
+  } else if (filtros.responsavel === "livres") {
     where.responsavelId = null;
   }
 
@@ -200,6 +217,9 @@ export async function listar(filtros, userId) {
     pageSize,
   };
 }
+
+// LOCALIZAÇÃO INDIVIDUAL DO LEAD
+
 async function obterLead(id) {
   const lead = await Lead.findByPk(id, {
     include: [includeResponsavel],
@@ -212,27 +232,79 @@ async function obterLead(id) {
   return lead;
 }
 
-export async function reservar(id, userId) {
-  await Lead.update(
-    {
-      responsavelId: userId,
-    },
-    {
-      where: {
-        id,
-        responsavelId: null,
-      },
-    },
-  );
+// DISTRIBUIÇÃO ADMINISTRATIVA DE LEADS
 
-  const lead = await obterLead(id);
-
-  if (lead.responsavelId !== userId) {
-    throw erro(409, "Este lead já está sendo atendido por outro usuário.");
+export async function distribuir(leadIds, consultorId, adminId) {
+  if (
+    !Array.isArray(leadIds) ||
+    leadIds.length === 0 ||
+    leadIds.length > 100 ||
+    leadIds.some((id) => typeof id !== "string" || !id.trim())
+  ) {
+    throw erro(400, "Selecione entre 1 e 100 leads válidos.");
   }
 
-  return lead;
+  if (typeof consultorId !== "string" || !consultorId.trim()) {
+    throw erro(400, "Selecione um consultor.");
+  }
+
+  const consultor = await User.findOne({
+    where: {
+      id: consultorId,
+      role: "consultor",
+    },
+  });
+
+  if (!consultor) {
+    throw erro(404, "Consultor não encontrado.");
+  }
+
+  const ids = [...new Set(leadIds)].sort();
+
+  return sequelize.transaction(async (transaction) => {
+    const atribuidos = [];
+
+    for (const id of ids) {
+      const [alterados] = await Lead.update(
+        {
+          responsavelId: consultorId,
+        },
+        {
+          where: {
+            id,
+            responsavelId: null,
+          },
+          transaction,
+        },
+      );
+
+      if (alterados === 1) {
+        atribuidos.push(id);
+      }
+    }
+
+    if (atribuidos.length > 0) {
+      await Atendimento.bulkCreate(
+        atribuidos.map((id) => ({
+          leadId: id,
+          userId: adminId,
+          type: "reserva",
+          description: `Lead distribuído para ${consultor.name}.`,
+        })),
+        { transaction },
+      );
+    }
+
+    return {
+      distribuidos: atribuidos.length,
+      ignorados: ids.length - atribuidos.length,
+      leadIds: atribuidos,
+    };
+  });
 }
+
+// ALTERAÇÃO DE STATUS
+
 export async function alterarStatus(id, userId, status) {
   if (!STATUS_VALIDOS.includes(status)) {
     throw erro(400, "Status inválido.");
@@ -254,35 +326,64 @@ export async function alterarStatus(id, userId, status) {
   const lead = await obterLead(id);
 
   if (lead.responsavelId !== userId) {
-    throw erro(409, "Assuma o atendimento antes de alterar o status.");
+    throw erro(403, "Você não é o responsável por este lead.");
   }
 
   return lead;
 }
-export async function obterIndicadores() {
-  const [total, contatados, pendentes, cidades] = await Promise.all([
-    Lead.count(),
-    Lead.count({
-      where: { status: "Contatado" },
-    }),
-    Lead.count({
-      where: { status: "Pendente" },
-    }),
-    Lead.findAll({
-      attributes: ["cidade"],
-      group: ["cidade"],
-      order: [["cidade", "ASC"]],
-      raw: true,
-    }),
-  ]);
+
+// INDICADORES DO DASHBOARD
+
+export async function obterIndicadores(user) {
+  const admin = user.role === "admin";
+
+  const carteira = admin ? {} : { responsavelId: user.id };
+
+  const [total, contatados, pendentes, disponiveis, cidades] =
+    await Promise.all([
+      Lead.count({
+        where: carteira,
+      }),
+
+      Lead.count({
+        where: {
+          ...carteira,
+          status: "Contatado",
+        },
+      }),
+
+      Lead.count({
+        where: {
+          ...carteira,
+          status: "Pendente",
+        },
+      }),
+
+      admin
+        ? Lead.count({
+            where: { responsavelId: null },
+          })
+        : Promise.resolve(0),
+
+      Lead.findAll({
+        attributes: ["cidade"],
+        where: carteira,
+        group: ["cidade"],
+        order: [["cidade", "ASC"]],
+        raw: true,
+      }),
+    ]);
 
   return {
     total,
     contatados,
     pendentes,
+    disponiveis,
     cidades: cidades.map((item) => item.cidade).filter(Boolean),
   };
 }
+
+// HISTÓRICO COMERCIAL
 
 export async function listarHistorico(id, userId) {
   const lead = await obterLead(id);
@@ -299,6 +400,8 @@ export async function listarHistorico(id, userId) {
     limit: 100,
   });
 }
+
+// REGISTRO DE OBSERVAÇÕES
 
 export async function salvarObservacao(id, userId, observacao) {
   const lead = await obterLead(id);
