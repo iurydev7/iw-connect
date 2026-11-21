@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { Op, UniqueConstraintError } from "sequelize";
 import { sequelize, Lead, User, Atendimento } from "../models/index.js";
+import {
+  normalizarNome,
+  normalizarLocalidade,
+} from "../utils/normalizarDados.js";
 
 const STATUS_VALIDOS = [
   "Pendente",
@@ -55,12 +59,15 @@ export async function importar(leads) {
   let invalidos = 0;
 
   async function salvar(item) {
-    const nome = texto(item?.nome);
-    const telefone = normalizarTelefone(item?.telefone);
-    const cidade = texto(item?.cidade) || "Não informada";
-    const uf = texto(item?.uf).toUpperCase() || null;
-    const bairro = texto(item?.bairro) || null;
+    const nome = normalizarNome(item?.nome);
 
+    const telefone = normalizarTelefone(item?.telefone);
+
+    const cidade = normalizarLocalidade(item?.cidade) || "NÃO INFORMADA";
+
+    const uf = normalizarLocalidade(item?.uf) || null;
+
+    const bairro = normalizarLocalidade(item?.bairro) || null;
     if (
       !nome ||
       !telefone ||
@@ -142,9 +149,9 @@ export async function listar(filtros, user) {
   const where = {};
 
   const busca = texto(filtros.busca);
-  const cidade = texto(filtros.cidade);
-  const uf = texto(filtros.uf).toUpperCase();
-  const bairro = texto(filtros.bairro);
+  const cidade = normalizarLocalidade(filtros.cidade);
+  const uf = normalizarLocalidade(filtros.uf);
+  const bairro = normalizarLocalidade(filtros.bairro);
   const status = texto(filtros.status);
 
   if (busca) {
@@ -330,9 +337,7 @@ export async function alterarStatus(id, userId, status) {
 export async function obterIndicadores(user) {
   const admin = user.role === "admin";
 
-  const carteira = admin
-    ? {}
-    : { responsavelId: user.id };
+  const carteira = admin ? {} : { responsavelId: user.id };
 
   const [total, contatados, pendentes, disponiveis, cidades] =
     await Promise.all([
