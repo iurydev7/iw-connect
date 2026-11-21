@@ -35,9 +35,13 @@ export async function importar(leads) {
   return total;
 }
 
-export function reservar(id) {
-  return apiRequest(`/leads/${id}/claim`, {
-    method: "PATCH",
+export function distribuir(leadIds, consultorId) {
+  return apiRequest("/leads/distribute", {
+    method: "POST",
+    body: JSON.stringify({
+      leadIds,
+      consultorId,
+    }),
   });
 }
 

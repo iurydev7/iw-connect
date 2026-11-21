@@ -126,19 +126,23 @@ function Header() {
 
         {/* Navegação */}
         <nav className="header-nav" aria-label="Navegação principal">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`nav-link ${
-                activeSection === item.id ? "nav-active" : ""
-              }`}
-              onClick={() => navegarPara(item.id)}
-              aria-current={activeSection === item.id ? "location" : undefined}
-            >
-              {item.label}
-            </button>
-          ))}
+          {menuItems
+            .filter((item) => user?.role === "admin" || item.id !== "importar")
+            .map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`nav-link ${
+                  activeSection === item.id ? "nav-active" : ""
+                }`}
+                onClick={() => navegarPara(item.id)}
+                aria-current={
+                  activeSection === item.id ? "location" : undefined
+                }
+              >
+                {item.label}
+              </button>
+            ))}
         </nav>
       </div>
     </header>

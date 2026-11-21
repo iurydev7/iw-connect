@@ -79,3 +79,13 @@ export function salvarObservacao(req, res) {
     201
   );
 }
+export function distribuir(req, res) {
+  return executar(
+    res,
+    () => leadService.distribuir(
+      req.body?.leadIds,
+      req.body?.consultorId,
+      req.user.id
+    )
+  );
+}

@@ -10,7 +10,7 @@ import {
   UserPlus,
   LockKeyhole,
 } from "lucide-react";
-
+import * as userService from "../../services/userService.js";
 import { useAuth } from "../../context/AuthContext";
 import * as leadService from "../../services/leadService";
 import { importarPlanilha } from "../../utils/importarPlanilha";
@@ -73,7 +73,15 @@ function Dashboard() {
   const [leadSelecionadoId, setLeadSelecionadoId] = useState(null);
   const [importando, setImportando] = useState(false);
 
-  const [filtros, setFiltros] = useState(FILTROS_INICIAIS);
+  const [consultores, setConsultores] = useState([]);
+  const [consultorId, setConsultorId] = useState("");
+  const [selecionados, setSelecionados] = useState([]);
+  const [distribuindo, setDistribuindo] = useState(false);
+
+  const [filtros, setFiltros] = useState({
+    ...FILTROS_INICIAIS,
+    responsavel: isAdmin ? "livres" : "meus",
+  });
   const [pagina, setPagina] = useState(1);
   const [totalFiltrado, setTotalFiltrado] = useState(0);
   const [versao, setVersao] = useState(0);
@@ -95,6 +103,38 @@ function Dashboard() {
   );
 
   const totalPaginas = Math.max(1, Math.ceil(totalFiltrado / PAGE_SIZE));
+
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    let ativo = true;
+
+    async function carregarConsultores() {
+      try {
+        const usuarios = await userService.listar();
+
+        if (ativo) {
+          setConsultores(
+            usuarios.filter((usuario) => usuario.role === "consultor"),
+          );
+        }
+      } catch (error) {
+        if (ativo) {
+          alertaIW.fire({
+            icon: "error",
+            title: "Erro ao carregar consultores",
+            text: error.message,
+          });
+        }
+      }
+    }
+
+    carregarConsultores();
+
+    return () => {
+      ativo = false;
+    };
+  }, [isAdmin]);
 
   useEffect(() => {
     let ativo = true;
@@ -273,12 +313,85 @@ function Dashboard() {
     }
   }
 
-  function assumirLead(id) {
-    return executarAcao(id, () => leadService.reservar(id));
+  async function distribuirLeads() {
+    if (
+      !isAdmin ||
+      distribuindo ||
+      !consultorId ||
+      !selecionadosValidos.length
+    ) {
+      return;
+    }
+
+    setDistribuindo(true);
+
+    try {
+      const resultado = await leadService.distribuir(
+        selecionadosValidos,
+        consultorId,
+      );
+
+      setContatos((anteriores) =>
+        anteriores.filter((lead) => !resultado.leadIds.includes(lead.id)),
+      );
+
+      setSelecionados([]);
+      atualizarLista();
+
+      await alertaIW.fire({
+        icon: "success",
+        title: "Distribuição concluída",
+        text: `${resultado.distribuidos} leads distribuídos e ${resultado.ignorados} ignorados.`,
+      });
+    } catch (error) {
+      await alertaIW.fire({
+        icon: "error",
+        title: "Falha na distribuição",
+        text: error.message,
+      });
+    } finally {
+      setDistribuindo(false);
+    }
   }
 
   function alterarStatus(id, status) {
     return executarAcao(id, () => leadService.alterarStatus(id, status));
+  }
+
+  function selecionarLead(id) {
+    setSelecionados((anteriores) =>
+      anteriores.includes(id)
+        ? anteriores.filter((item) => item !== id)
+        : [...anteriores, id],
+    );
+  }
+
+  function selecionarTodos() {
+    const ids = contatos
+      .filter((lead) => !lead.responsavelId)
+      .map((lead) => lead.id);
+
+    setSelecionados(ids);
+  }
+
+  const selecionadosValidos = selecionados.filter((id) =>
+    contatos.some((lead) => lead.id === id && !lead.responsavelId),
+  );
+
+  function abrirCarteira(responsavel, status = "") {
+    setFiltros({
+      ...FILTROS_INICIAIS,
+      responsavel,
+      status,
+    });
+
+    setPagina(1);
+    setCarregando(true);
+
+    document.getElementById("contatos")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   }
 
   return (
@@ -399,15 +512,17 @@ function Dashboard() {
             </div>
           </div>
           <div className="wallet-tabs">
-            <button
-              type="button"
-              className={
-                filtros.responsavel === "livres" ? "wallet-active" : ""
-              }
-              onClick={() => abrirCarteira("livres")}
-            >
-              Leads disponíveis
-            </button>
+            {isAdmin && (
+              <button
+                type="button"
+                className={
+                  filtros.responsavel === "livres" ? "wallet-active" : ""
+                }
+                onClick={() => abrirCarteira("livres")}
+              >
+                Não distribuídos
+              </button>
+            )}
 
             <button
               type="button"
@@ -550,6 +665,59 @@ function Dashboard() {
 
           {erroConsulta && <p role="alert">{erroConsulta}</p>}
 
+          {isAdmin && filtros.responsavel === "livres" && (
+            <div className="distribution-panel">
+              <div>
+                <h3>Central de distribuição</h3>
+                <p>{selecionadosValidos.length} leads selecionados</p>
+              </div>
+
+              <div className="distribution-actions">
+                <button
+                  type="button"
+                  className="btn-status"
+                  onClick={selecionarTodos}
+                >
+                  Selecionar página
+                </button>
+
+                <button
+                  type="button"
+                  className="btn-status"
+                  onClick={() => setSelecionados([])}
+                >
+                  Desmarcar
+                </button>
+
+                <select
+                  className="lead-status-select"
+                  aria-label="Consultor responsável"
+                  value={consultorId}
+                  onChange={(e) => setConsultorId(e.target.value)}
+                >
+                  <option value="">Selecione o consultor</option>
+
+                  {consultores.map((consultor) => (
+                    <option key={consultor.id} value={consultor.id}>
+                      {consultor.name}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  className="btn-claim"
+                  onClick={distribuirLeads}
+                  disabled={
+                    distribuindo || !consultorId || !selecionadosValidos.length
+                  }
+                >
+                  {distribuindo ? "Distribuindo..." : "Distribuir leads"}
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="contacts-list">
             {!carregando &&
               !erroConsulta &&
@@ -584,16 +752,19 @@ function Dashboard() {
                     </div>
 
                     <div className="contact-actions">
-                      {disponivel && (
-                        <button
-                          className="btn-claim"
-                          disabled={Boolean(acaoId)}
-                          onClick={() => assumirLead(contato.id)}
-                        >
-                          <UserPlus size={16} />
-                          Assumir atendimento
-                        </button>
-                      )}
+                      {isAdmin &&
+                        disponivel &&
+                        filtros.responsavel === "livres" && (
+                          <label className="lead-select-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={selecionadosValidos.includes(contato.id)}
+                              onChange={() => selecionarLead(contato.id)}
+                              disabled={distribuindo}
+                            />
+                            Selecionar lead
+                          </label>
+                        )}
 
                       {meuLead && (
                         <>
@@ -686,21 +857,5 @@ function Dashboard() {
       )}
     </main>
   );
-}
-
-function abrirCarteira(responsavel, status = "") {
-  setFiltros({
-    ...FILTROS_INICIAIS,
-    responsavel,
-    status,
-  });
-
-  setPagina(1);
-  setCarregando(true);
-
-  document.getElementById("contatos")?.scrollIntoView({
-    behavior: "smooth",
-    block: "start",
-  });
 }
 export default Dashboard;

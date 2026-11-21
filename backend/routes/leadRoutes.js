@@ -11,7 +11,7 @@ router.get("/", leadController.listar);
 
 router.post("/import", adminMiddleware, leadController.importar);
 
-router.patch("/:id/claim", leadController.reservar);
+router.post("/distribute", adminMiddleware, leadController.distribuir);
 
 router.patch("/:id/status", leadController.alterarStatus);
 
