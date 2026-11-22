@@ -1,6 +1,41 @@
 import bcrypt from "bcrypt";
 import { randomBytes, createHash } from "node:crypto";
+import { Op } from "sequelize";
 import { User, Session } from "../models/index.js";
+
+export async function getSession(token) {
+  if (!token || typeof token !== "string") {
+    return null;
+  }
+
+  const tokenHash = createHash("sha256")
+    .update(token)
+    .digest("hex");
+
+  const session = await Session.findOne({
+    where: {
+      tokenHash,
+      expiresAt: {
+        [Op.gt]: new Date(),
+      },
+    },
+    include: [
+      {
+        model: User,
+        as: "user",
+        attributes: ["id", "name", "email", "role"],
+        required: true,
+      },
+    ],
+  });
+
+  if (!session) return null;
+
+  return {
+    user: session.user.toJSON(),
+    tokenHash,
+  };
+}
 
 export async function login(email, password, remember = false) {
   if (

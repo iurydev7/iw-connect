@@ -15,6 +15,10 @@ export function me() {
   return apiRequest("/auth/me");
 }
 
+export function session() {
+  return apiRequest("/auth/session");
+}
+
 export function logout() {
   return apiRequest("/auth/logout", {
     method: "POST",
