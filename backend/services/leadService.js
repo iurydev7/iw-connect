@@ -232,8 +232,6 @@ async function obterLead(id) {
   return lead;
 }
 
-// DISTRIBUIÇÃO ADMINISTRATIVA DE LEADS
-
 export async function distribuir(leadIds, consultorId, adminId) {
   if (
     !Array.isArray(leadIds) ||
@@ -245,18 +243,25 @@ export async function distribuir(leadIds, consultorId, adminId) {
   }
 
   if (typeof consultorId !== "string" || !consultorId.trim()) {
-    throw erro(400, "Selecione um consultor.");
+    throw erro(400, "Selecione um responsável.");
   }
 
-  const consultor = await User.findOne({
+  // Permite consultores ou o próprio administrador
+  const responsavel = await User.findOne({
     where: {
       id: consultorId,
-      role: "consultor",
+      [Op.or]: [
+        { role: "consultor" },
+        {
+          id: adminId,
+          role: "admin",
+        },
+      ],
     },
   });
 
-  if (!consultor) {
-    throw erro(404, "Consultor não encontrado.");
+  if (!responsavel) {
+    throw erro(404, "Responsável não encontrado.");
   }
 
   const ids = [...new Set(leadIds)].sort();
@@ -267,7 +272,7 @@ export async function distribuir(leadIds, consultorId, adminId) {
     for (const id of ids) {
       const [alterados] = await Lead.update(
         {
-          responsavelId: consultorId,
+          responsavelId: responsavel.id,
         },
         {
           where: {
@@ -275,7 +280,7 @@ export async function distribuir(leadIds, consultorId, adminId) {
             responsavelId: null,
           },
           transaction,
-        },
+        }
       );
 
       if (alterados === 1) {
@@ -289,9 +294,12 @@ export async function distribuir(leadIds, consultorId, adminId) {
           leadId: id,
           userId: adminId,
           type: "reserva",
-          description: `Lead distribuído para ${consultor.name}.`,
+          description:
+            responsavel.id === adminId
+              ? "Lead atribuído à própria carteira do administrador."
+              : `Lead distribuído para ${responsavel.name}.`,
         })),
-        { transaction },
+        { transaction }
       );
     }
 
@@ -302,8 +310,6 @@ export async function distribuir(leadIds, consultorId, adminId) {
     };
   });
 }
-
-// ALTERAÇÃO DE STATUS
 
 export async function alterarStatus(id, userId, status) {
   if (!STATUS_VALIDOS.includes(status)) {

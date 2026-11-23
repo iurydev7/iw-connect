@@ -114,15 +114,18 @@ function Dashboard() {
         const usuarios = await userService.listar();
 
         if (ativo) {
-          setConsultores(
-            usuarios.filter((usuario) => usuario.role === "consultor"),
+          const responsaveis = usuarios.filter(
+            (usuario) =>
+              usuario.role === "consultor" || usuario.id === user?.id,
           );
+
+          setConsultores(responsaveis);
         }
       } catch (error) {
         if (ativo) {
           alertaIW.fire({
             icon: "error",
-            title: "Erro ao carregar consultores",
+            title: "Erro ao carregar responsáveis",
             text: error.message,
           });
         }
@@ -134,7 +137,7 @@ function Dashboard() {
     return () => {
       ativo = false;
     };
-  }, [isAdmin]);
+  }, [isAdmin, user?.id]);
 
   useEffect(() => {
     let ativo = true;
@@ -691,15 +694,17 @@ function Dashboard() {
 
                 <select
                   className="lead-status-select"
-                  aria-label="Consultor responsável"
+                  aria-label="Responsável pelo atendimento"
                   value={consultorId}
                   onChange={(e) => setConsultorId(e.target.value)}
                 >
-                  <option value="">Selecione o consultor</option>
+                  <option value="">Selecione o responsável</option>
 
                   {consultores.map((consultor) => (
                     <option key={consultor.id} value={consultor.id}>
-                      {consultor.name}
+                      {consultor.id === user?.id
+                        ? "Minha carteira (Administrador)"
+                        : consultor.name}
                     </option>
                   ))}
                 </select>
