@@ -38,6 +38,26 @@ export async function login(req, res) {
     });
   }
 }
+export async function session(req, res) {
+  res.set("Cache-Control", "no-store");
+
+  try {
+    const currentSession = await authService.getSession(
+      req.cookies?.iw_session
+    );
+
+    return res.status(200).json({
+      user: currentSession?.user ?? null,
+    });
+  } catch (error) {
+    console.error("Erro na consulta da sessão:", error.name);
+
+    return res.status(500).json({
+      message: "Erro interno do servidor.",
+    });
+  }
+}
+
 export function me(req, res) {
   res.set("Cache-Control", "no-store");
 

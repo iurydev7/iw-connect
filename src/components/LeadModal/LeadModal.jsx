@@ -15,7 +15,12 @@ function formatarData(data) {
   return valor.toLocaleString("pt-BR");
 }
 
-function LeadModal({ lead, onClose, onSaveObservation }) {
+function LeadModal({
+  lead,
+  onClose,
+  onSaveObservation,
+  somenteLeitura = false,
+}) {
   const dialogRef = useRef(null);
 
   const [observacao, setObservacao] = useState("");
@@ -74,6 +79,7 @@ function LeadModal({ lead, onClose, onSaveObservation }) {
   // Registrar nova observação
   async function salvarObservacao(event) {
     event.preventDefault();
+    if (somenteLeitura) return;
 
     if (!observacao.trim() || salvando) return;
 
@@ -82,19 +88,12 @@ function LeadModal({ lead, onClose, onSaveObservation }) {
     setObservacaoSalva(false);
 
     try {
-      const registro = await onSaveObservation(
-        lead.id,
-        observacao.trim()
-      );
+      const registro = await onSaveObservation(lead.id, observacao.trim());
 
-      setHistorico((anteriores) => [
-        registro,
-        ...anteriores,
-      ]);
+      setHistorico((anteriores) => [registro, ...anteriores]);
 
       setObservacao("");
       setObservacaoSalva(true);
-
     } catch (error) {
       setErro(error.message);
     } finally {
@@ -119,9 +118,7 @@ function LeadModal({ lead, onClose, onSaveObservation }) {
     >
       <div className="lead-modal-header">
         <div>
-          <span className="lead-modal-label">
-            FICHA COMERCIAL
-          </span>
+          <span className="lead-modal-label">FICHA COMERCIAL</span>
 
           <h2 id="lead-modal-title">{lead.nome}</h2>
           <p>{lead.telefone}</p>
@@ -138,9 +135,7 @@ function LeadModal({ lead, onClose, onSaveObservation }) {
       </div>
 
       <div className="lead-modal-body">
-
         <div className="lead-modal-grid">
-
           <div>
             <span>Cidade</span>
 
@@ -152,9 +147,7 @@ function LeadModal({ lead, onClose, onSaveObservation }) {
 
           <div>
             <span>Bairro</span>
-            <strong>
-              {lead.bairro || "Não informado"}
-            </strong>
+            <strong>{lead.bairro || "Não informado"}</strong>
           </div>
 
           <div>
@@ -165,83 +158,78 @@ function LeadModal({ lead, onClose, onSaveObservation }) {
           <div>
             <span>Responsável</span>
 
-            <strong>
-              {lead.responsavel?.name || "Não atribuído"}
-            </strong>
+            <strong>{lead.responsavel?.name || "Não atribuído"}</strong>
           </div>
 
           <div>
             <span>Data de entrada</span>
 
-            <strong>
-              {formatarData(lead.dataEntrada)}
-            </strong>
+            <strong>{formatarData(lead.dataEntrada)}</strong>
           </div>
 
           <div>
             <span>Último contato registrado</span>
 
-            <strong>
-              {formatarData(lead.dataContatado)}
-            </strong>
+            <strong>{formatarData(lead.dataContatado)}</strong>
           </div>
-
         </div>
+        {somenteLeitura && (
+          <p className="lead-readonly-notice">
+            Modo supervisão: você pode consultar, mas não alterar este
+            atendimento.
+          </p>
+        )}
+        {!somenteLeitura && (
+          <form onSubmit={salvarObservacao}>
+            <label htmlFor="lead-observacao">
+              Nova observação do atendimento
+            </label>
 
-        <form onSubmit={salvarObservacao}>
+            <textarea
+              id="lead-observacao"
+              value={observacao}
+              onChange={(event) => {
+                setObservacao(event.target.value);
+                setObservacaoSalva(false);
+              }}
+              placeholder="Registre a tratativa comercial..."
+              rows={5}
+              maxLength={2000}
+              required
+            />
 
-          <label htmlFor="lead-observacao">
-            Nova observação do atendimento
-          </label>
+            <button
+              type="submit"
+              className="lead-save-button"
+              disabled={salvando || carregandoHistorico || !observacao.trim()}
+            >
+              {salvando ? "Salvando..." : "Salvar observação"}
+            </button>
 
-          <textarea
-            id="lead-observacao"
-            value={observacao}
-            onChange={(event) => {
-              setObservacao(event.target.value);
-              setObservacaoSalva(false);
-            }}
-            placeholder="Registre a tratativa comercial..."
-            rows={5}
-            maxLength={2000}
-            required
-          />
+            {observacaoSalva && (
+              <div className="lead-save-success" role="status">
+                ✓ Observação salva com sucesso!
+              </div>
+            )}
 
-          <button
-            type="submit"
-            className="lead-save-button"
-            disabled={
-              salvando ||
-              carregandoHistorico ||
-              !observacao.trim()
-            }
-          >
-            {salvando
-              ? "Salvando..."
-              : "Salvar observação"}
-          </button>
+            {erro && (
+              <div className="lead-save-error" role="alert">
+                {erro}
+              </div>
+            )}
+          </form>
+        )}
 
-          {observacaoSalva && (
-            <div className="lead-save-success" role="status">
-              ✓ Observação salva com sucesso!
-            </div>
-          )}
-
-          {erro && (
-            <div className="lead-save-error" role="alert">
-              {erro}
-            </div>
-          )}
-
-        </form>
+        {somenteLeitura && erro && (
+          <div className="lead-save-error" role="alert">
+            {erro}
+          </div>
+        )}
 
         <section className="lead-history">
-
           <h3>Histórico comercial</h3>
 
-          {carregandoHistorico && (
-            <p>Carregando histórico...</p>
-          )}
+          {carregandoHistorico && <p>Carregando histórico...</p>}
 
           {!carregandoHistorico && !erro && historico.length === 0 && (
             <p>Nenhum atendimento registrado.</p>
@@ -249,21 +237,22 @@ function LeadModal({ lead, onClose, onSaveObservation }) {
 
           {historico.map((registro) => (
             <div className="history-item" key={registro.id}>
-
               <span className="history-date">
                 {formatarData(registro.createdAt)}
               </span>
+              {registro.autor?.name && (
+                <span className="history-author">
+                  Registrado por {registro.autor.name}
+                </span>
+              )}
 
               <p>{registro.description}</p>
-
             </div>
           ))}
-
         </section>
-
       </div>
     </dialog>,
-    document.body
+    document.body,
   );
 }
 

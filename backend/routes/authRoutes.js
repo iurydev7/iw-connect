@@ -3,6 +3,7 @@ import { rateLimit } from "express-rate-limit";
 import { authMiddleware } from "../middlewares/authMiddleware.js";
 import {
   login,
+  session,
   me,
   logout
 } from "../controllers/authController.js";
@@ -20,6 +21,7 @@ const loginLimiter = rateLimit({
 });
 
 router.post("/login", loginLimiter, login);
+router.get("/session", session);
 router.get("/me", authMiddleware, me);
 router.post("/logout", logout);
 

@@ -54,17 +54,18 @@ export function alterarStatus(req, res) {
 export function obterIndicadores(req, res) {
   return executar(
     res,
-    () => leadService.obterIndicadores(req.user)
+    () => leadService.obterIndicadores(req.user, req.query.responsavel)
   );
 }
 
 export function listarHistorico(req, res) {
   return executar(
     res,
-    () => leadService.listarHistorico(
-      req.params.id,
-      req.user.id
-    )
+    () =>
+      leadService.listarHistorico(
+        req.params.id,
+        req.user
+      )
   );
 }
 
@@ -87,5 +88,19 @@ export function distribuir(req, res) {
       req.body?.consultorId,
       req.user.id
     )
+  );
+}
+
+export function remover(req, res) {
+  return executar(
+    res,
+    () => leadService.remover(req.params.id, req.user)
+  );
+}
+
+export function removerEmMassa(req, res) {
+  return executar(
+    res,
+    () => leadService.removerEmMassa(req.body?.leadIds, req.user)
   );
 }

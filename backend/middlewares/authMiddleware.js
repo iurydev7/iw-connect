@@ -1,6 +1,4 @@
-import { createHash } from "node:crypto";
-import { Op } from "sequelize";
-import { User, Session } from "../models/index.js";
+import { getSession } from "../services/authService.js";
 
 
 export async function authMiddleware(req, res, next) {
@@ -13,26 +11,7 @@ export async function authMiddleware(req, res, next) {
       });
     }
 
-    const tokenHash = createHash("sha256")
-      .update(token)
-      .digest("hex");
-
-    const session = await Session.findOne({
-      where: {
-        tokenHash,
-        expiresAt: {
-          [Op.gt]: new Date()
-        }
-      },
-      include: [
-        {
-          model: User,
-          as: "user",
-          attributes: ["id", "name", "email", "role"],
-          required: true
-        }
-      ]
-    });
+    const session = await getSession(token);
 
     if (!session) {
       return res.status(401).json({
@@ -40,8 +19,8 @@ export async function authMiddleware(req, res, next) {
       });
     }
 
-    req.user = session.user.toJSON();
-    req.sessionTokenHash = tokenHash;
+    req.user = session.user;
+    req.sessionTokenHash = session.tokenHash;
 
     next();
 

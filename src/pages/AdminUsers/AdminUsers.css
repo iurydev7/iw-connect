@@ -262,6 +262,32 @@
   font-size: 14px;
 }
 
+.team-user-profile-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #f8ca62;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.team-user-profile-link:hover {
+  text-decoration: underline;
+}
+
+.team-user-profile-link:focus-visible {
+  outline: 2px solid #f8ca62;
+  outline-offset: 3px;
+}
+
+.team-user-profile-link:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .team-user-info > span {
   color: #9fb1c9;
   font-size: 12px;
@@ -345,4 +371,75 @@
   .team-form-actions {
     flex-direction: column;
   }
+}
+
+/* Seletor de perfil */
+
+.team-field select {
+  width: 100%;
+  padding: 13px;
+  border: 1px solid #34465e;
+  border-radius: 9px;
+  background: #0b192c;
+  color: #ffffff;
+  font: inherit;
+}
+
+.team-field select:focus {
+  outline: none;
+  border-color: #c9a24b;
+}
+
+/* Botões de gerenciamento */
+
+.team-user-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.team-user-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+@media (max-width: 600px) {
+  .team-user-actions {
+    width: 100%;
+  }
+
+  .team-user-actions > button {
+    flex: 1;
+  }
+}
+.team-danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  min-height: 42px;
+  padding: 11px 16px;
+
+  color: #ff9696;
+  background: rgba(220, 38, 38, 0.08);
+
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  border-radius: 9px;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.team-danger-button:hover {
+  background: rgba(220, 38, 38, 0.16);
+}
+
+.team-danger-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }

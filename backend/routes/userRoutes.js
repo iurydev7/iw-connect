@@ -11,5 +11,7 @@ router.use(adminMiddleware);
 router.get("/", userController.listar);
 router.post("/", userController.criar);
 router.patch("/:id", userController.editar);
+router.patch("/:id/password", userController.redefinirSenha);
+router.delete("/:id", userController.remover);
 
 export default router;

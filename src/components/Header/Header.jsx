@@ -18,7 +18,12 @@ function Header({ onOpenUsers, onOpenDashboard, showNav = true }) {
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
 
-  const roleLabel = user?.role === "admin" ? "Administrador" : "Usuário";
+  const roleLabel =
+    user?.role === "master"
+      ? "Master"
+      : user?.role === "admin"
+        ? "Administrador"
+        : "Consultor";
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -135,7 +140,9 @@ function Header({ onOpenUsers, onOpenDashboard, showNav = true }) {
           {showNav ? (
             menuItems
               .filter(
-                (item) => user?.role === "admin" || item.id !== "importar",
+                (item) =>
+                  ["admin", "master"].includes(user?.role) ||
+                  item.id !== "importar",
               )
               .map((item) => (
                 <button
@@ -159,7 +166,7 @@ function Header({ onOpenUsers, onOpenDashboard, showNav = true }) {
             </button>
           )}
 
-          {user?.role === "admin" && (
+          {["admin", "master"].includes(user?.role) && (
             <button
               type="button"
               className={`nav-link ${!showNav ? "nav-active" : ""}`}

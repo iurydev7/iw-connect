@@ -13,30 +13,46 @@ function AreaLogada() {
   const { user } = useAuth();
 
   const [pagina, setPagina] = useState("dashboard");
+  const [carteiraSupervisionada, setCarteiraSupervisionada] = useState(null);
 
-  const isAdmin = user?.role === "admin";
-
+  const isAdmin = ["admin", "master"].includes(user?.role);
   const exibirEquipe = isAdmin && pagina === "equipe";
+
+  function abrirDashboard() {
+    setCarteiraSupervisionada(null);
+    setPagina("dashboard");
+  }
+
+  function visualizarCarteira(consultorId) {
+    if (user?.role !== "master") return;
+
+    setCarteiraSupervisionada(consultorId);
+    setPagina("dashboard");
+  }
 
   return (
     <>
       <Header
         onOpenUsers={() => setPagina("equipe")}
-        onOpenDashboard={() => setPagina("dashboard")}
+        onOpenDashboard={abrirDashboard}
         showNav={!exibirEquipe}
       />
 
-      {exibirEquipe ? <AdminUsers /> : <Dashboard />}
+      {exibirEquipe ? (
+        <AdminUsers onViewPortfolio={visualizarCarteira} />
+      ) : (
+        <Dashboard
+          key={carteiraSupervisionada || "padrao"}
+          responsavelInicial={carteiraSupervisionada}
+          onReturnHome={abrirDashboard}
+        />
+      )}
     </>
   );
 }
 
 function AppContent() {
-  const {
-    isAuthenticated,
-    loading,
-    sessionError,
-  } = useAuth();
+  const { isAuthenticated, loading, sessionError } = useAuth();
 
   if (loading) {
     return <p>Carregando...</p>;
