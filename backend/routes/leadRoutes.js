@@ -17,6 +17,9 @@ router.patch("/:id/status", leadController.alterarStatus);
 
 router.get("/metadata", leadController.obterIndicadores);
 
+router.delete("/bulk", leadController.removerEmMassa);
+router.delete("/:id", leadController.remover);
+
 router.get("/:id/history", leadController.listarHistorico);
 
 router.post("/:id/observations", leadController.salvarObservacao);

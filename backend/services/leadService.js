@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { Op, UniqueConstraintError } from "sequelize";
-import { sequelize, Lead, User, Atendimento } from "../models/index.js";
+import {
+  sequelize,
+  Lead,
+  User,
+  Atendimento,
+  Lembrete,
+} from "../models/index.js";
 import {
   normalizarNome,
   normalizarLocalidade,
@@ -19,6 +25,28 @@ const STATUS_VALIDOS = [
 
 function erro(status, message) {
   return Object.assign(new Error(message), { status });
+}
+
+function exigirMaster(user) {
+  if (user?.role !== "master") {
+    throw erro(403, "Somente o Master pode excluir leads.");
+  }
+}
+
+function cancelarLembretes(leadIds, transaction) {
+  return Lembrete.update(
+    {
+      status: "cancelado",
+      resolvedAt: new Date(),
+    },
+    {
+      where: {
+        leadId: leadIds,
+        status: "pendente",
+      },
+      transaction,
+    },
+  );
 }
 
 function texto(valor) {
@@ -184,14 +212,38 @@ export async function listar(filtros, user) {
 
   // Controle de acesso à carteira comercial
 
-  if (user.role !== "admin") {
-    where.responsavelId = user.id;
-  } else if (filtros.responsavel === "meus") {
-    where.responsavelId = user.id;
-  } else if (filtros.responsavel === "livres") {
-    where.responsavelId = null;
-  }
+  const isGestor = ["admin", "master"].includes(user.role);
 
+  // Controle de acesso à carteira comercial
+
+  if (user.role === "consultor") {
+    where.responsavelId = user.id;
+  } else if (["admin", "master"].includes(user.role)) {
+    if (filtros.responsavel === "meus") {
+      where.responsavelId = user.id;
+    } else if (filtros.responsavel === "livres") {
+      where.responsavelId = null;
+    } else if (filtros.responsavel) {
+      if (user.role !== "master") {
+        throw erro(403, "Apenas o Master pode supervisionar outras carteiras.");
+      }
+
+      const consultor = await User.findOne({
+        where: {
+          id: filtros.responsavel,
+          role: "consultor",
+        },
+      });
+
+      if (!consultor) {
+        throw erro(404, "Consultor não encontrado.");
+      }
+
+      where.responsavelId = consultor.id;
+    }
+  } else {
+    throw erro(403, "Perfil sem permissão de acesso.");
+  }
   const page = Math.max(1, parseInt(filtros.page, 10) || 1);
 
   const pageSize = Math.min(
@@ -199,13 +251,22 @@ export async function listar(filtros, user) {
     Math.max(1, parseInt(filtros.pageSize, 10) || 50),
   );
 
+  const order =
+    filtros.responsavel === "livres"
+      ? [
+          ["updatedAt", "DESC"],
+          ["dataEntrada", "DESC"],
+          ["id", "DESC"],
+        ]
+      : [
+          ["dataEntrada", "DESC"],
+          ["id", "DESC"],
+        ];
+
   const { count, rows } = await Lead.findAndCountAll({
     where,
     include: [includeResponsavel],
-    order: [
-      ["dataEntrada", "DESC"],
-      ["id", "DESC"],
-    ],
+    order,
     limit: pageSize,
     offset: (page - 1) * pageSize,
   });
@@ -232,8 +293,6 @@ async function obterLead(id) {
   return lead;
 }
 
-// DISTRIBUIÇÃO ADMINISTRATIVA DE LEADS
-
 export async function distribuir(leadIds, consultorId, adminId) {
   if (
     !Array.isArray(leadIds) ||
@@ -245,18 +304,25 @@ export async function distribuir(leadIds, consultorId, adminId) {
   }
 
   if (typeof consultorId !== "string" || !consultorId.trim()) {
-    throw erro(400, "Selecione um consultor.");
+    throw erro(400, "Selecione um responsável.");
   }
 
-  const consultor = await User.findOne({
+  // Permite consultores ou o próprio administrador
+  const responsavel = await User.findOne({
     where: {
       id: consultorId,
-      role: "consultor",
+      [Op.or]: [
+        { role: "consultor" },
+        {
+          id: adminId,
+          role: { [Op.in]: ["admin", "master"] },
+        },
+      ],
     },
   });
 
-  if (!consultor) {
-    throw erro(404, "Consultor não encontrado.");
+  if (!responsavel) {
+    throw erro(404, "Responsável não encontrado.");
   }
 
   const ids = [...new Set(leadIds)].sort();
@@ -267,7 +333,7 @@ export async function distribuir(leadIds, consultorId, adminId) {
     for (const id of ids) {
       const [alterados] = await Lead.update(
         {
-          responsavelId: consultorId,
+          responsavelId: responsavel.id,
         },
         {
           where: {
@@ -289,7 +355,10 @@ export async function distribuir(leadIds, consultorId, adminId) {
           leadId: id,
           userId: adminId,
           type: "reserva",
-          description: `Lead distribuído para ${consultor.name}.`,
+          description:
+            responsavel.id === adminId
+              ? "Lead atribuído à própria carteira do administrador."
+              : `Lead distribuído para ${responsavel.name}.`,
         })),
         { transaction },
       );
@@ -303,41 +372,90 @@ export async function distribuir(leadIds, consultorId, adminId) {
   });
 }
 
-// ALTERAÇÃO DE STATUS
-
 export async function alterarStatus(id, userId, status) {
   if (!STATUS_VALIDOS.includes(status)) {
     throw erro(400, "Status inválido.");
   }
 
-  const dados = { status };
+  await sequelize.transaction(async (transaction) => {
+    const lead = await Lead.findByPk(id, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
 
-  if (status !== "Pendente") {
-    dados.dataContatado = new Date();
-  }
+    if (!lead) {
+      throw erro(404, "Lead não encontrado.");
+    }
 
-  await Lead.update(dados, {
-    where: {
-      id,
-      responsavelId: userId,
-    },
+    if (lead.responsavelId !== userId) {
+      throw erro(403, "Você não é o responsável por este lead.");
+    }
+
+    const statusAnterior = lead.status;
+    const dados = { status };
+
+    if (status !== "Pendente") {
+      dados.dataContatado = new Date();
+    }
+
+    await lead.update(dados, { transaction });
+
+    if (statusAnterior !== status) {
+      await Atendimento.create(
+        {
+          leadId: lead.id,
+          userId,
+          type: "status",
+          description: `Status alterado de ${statusAnterior} para ${status}.`,
+        },
+        { transaction },
+      );
+    }
   });
 
-  const lead = await obterLead(id);
-
-  if (lead.responsavelId !== userId) {
-    throw erro(403, "Você não é o responsável por este lead.");
-  }
-
-  return lead;
+  return obterLead(id);
 }
 
 // INDICADORES DO DASHBOARD
 
-export async function obterIndicadores(user) {
-  const admin = user.role === "admin";
+export async function obterIndicadores(user, responsavelFiltro) {
+  const admin = ["admin", "master"].includes(user.role);
 
-  const carteira = admin ? {} : { responsavelId: user.id };
+  let carteira;
+
+  if (user.role === "consultor") {
+    carteira = { responsavelId: user.id };
+  } else if (admin) {
+    if (responsavelFiltro === "meus") {
+      carteira = { responsavelId: user.id };
+    } else if (responsavelFiltro === "livres") {
+      carteira = { responsavelId: null };
+    } else if (responsavelFiltro) {
+      if (user.role !== "master") {
+        throw erro(403, "Apenas o Master pode supervisionar outras carteiras.");
+      }
+
+      const consultor = await User.findOne({
+        where: {
+          id: responsavelFiltro,
+          role: "consultor",
+        },
+      });
+
+      if (!consultor) {
+        throw erro(404, "Consultor não encontrado.");
+      }
+
+      carteira = { responsavelId: consultor.id };
+    } else {
+      carteira = {};
+    }
+  } else {
+    throw erro(403, "Perfil sem permissão de acesso.");
+  }
+
+  const contarDisponiveis =
+    admin && (!responsavelFiltro || responsavelFiltro === "livres");
 
   const [total, contatados, pendentes, disponiveis, cidades] =
     await Promise.all([
@@ -359,7 +477,7 @@ export async function obterIndicadores(user) {
         },
       }),
 
-      admin
+      contarDisponiveis
         ? Lead.count({
             where: { responsavelId: null },
           })
@@ -385,17 +503,25 @@ export async function obterIndicadores(user) {
 
 // HISTÓRICO COMERCIAL
 
-export async function listarHistorico(id, userId) {
+export async function listarHistorico(id, user) {
   const lead = await obterLead(id);
 
-  if (lead.responsavelId !== userId) {
-    throw erro(403, "Você não é o responsável por este lead.");
+  const ehResponsavel = lead.responsavelId === user.id;
+  const ehMaster = user.role === "master";
+
+  if (!ehResponsavel && !ehMaster) {
+    throw erro(403, "Sem permissão para consultar este histórico.");
   }
 
   return Atendimento.findAll({
-    where: {
-      leadId: id,
-    },
+    where: { leadId: id },
+    include: [
+      {
+        model: User,
+        as: "autor",
+        attributes: ["id", "name"],
+      },
+    ],
     order: [["createdAt", "DESC"]],
     limit: 100,
   });
@@ -421,5 +547,76 @@ export async function salvarObservacao(id, userId, observacao) {
     userId,
     type: "observacao",
     description,
+  });
+}
+
+export async function remover(id, user) {
+  exigirMaster(user);
+
+  if (typeof id !== "string" || !id.trim()) {
+    throw erro(400, "Lead inválido.");
+  }
+
+  return sequelize.transaction(async (transaction) => {
+    const lead = await Lead.findByPk(id, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!lead) {
+      throw erro(404, "Lead não encontrado.");
+    }
+
+    await cancelarLembretes([lead.id], transaction);
+    await lead.destroy({ transaction });
+
+    return {
+      message: "Lead removido com sucesso.",
+      removidos: 1,
+    };
+  });
+}
+
+export async function removerEmMassa(leadIds, user) {
+  exigirMaster(user);
+
+  if (
+    !Array.isArray(leadIds) ||
+    leadIds.length === 0 ||
+    leadIds.length > 100 ||
+    leadIds.some((id) => typeof id !== "string" || !id.trim())
+  ) {
+    throw erro(400, "Selecione entre 1 e 100 leads válidos.");
+  }
+
+  const ids = [...new Set(leadIds.map((id) => id.trim()))];
+
+  return sequelize.transaction(async (transaction) => {
+    const leads = await Lead.findAll({
+      attributes: ["id"],
+      where: { id: ids },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (leads.length !== ids.length) {
+      throw erro(404, "Um ou mais leads não foram encontrados.");
+    }
+
+    await cancelarLembretes(ids, transaction);
+
+    const removidos = await Lead.destroy({
+      where: { id: ids },
+      transaction,
+    });
+
+    if (removidos !== ids.length) {
+      throw erro(409, "Não foi possível excluir todos os leads selecionados.");
+    }
+
+    return {
+      message: `${removidos} leads removidos com sucesso.`,
+      removidos,
+    };
   });
 }

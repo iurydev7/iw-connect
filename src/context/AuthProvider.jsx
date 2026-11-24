@@ -12,11 +12,15 @@ export default function AuthProvider({ children }) {
 
     async function checkSession() {
       try {
-        const data = await authService.me();
+        const data = await authService.session();
 
-        if (active) setUser(data);
-      } catch (error) {
-        if (active && error.status !== 401) {
+        if (active) {
+          setUser(data.user);
+          setSessionError(null);
+        }
+      } catch {
+        if (active) {
+          setUser(null);
           setSessionError("Não foi possível consultar a sessão.");
         }
       } finally {

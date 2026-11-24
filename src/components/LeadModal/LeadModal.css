@@ -219,6 +219,13 @@
   margin-bottom: 8px;
 }
 
+.history-author {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--iw-text-secondary);
+  font-size: 11px;
+}
+
 .history-item p {
   margin: 0;
   color: var(--iw-text);
@@ -238,4 +245,14 @@
   border-radius: 10px;
   color: #fca5a5;
   font-size: 13px;
+}
+.lead-readonly-notice {
+  padding: 14px 16px;
+  margin: 18px 0;
+  color: #f8ca62;
+  background: rgba(201, 162, 75, 0.08);
+  border: 1px solid rgba(201, 162, 75, 0.3);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.6;
 }
