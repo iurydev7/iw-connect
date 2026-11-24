@@ -30,6 +30,13 @@ const STATUS = [
   "Contato inexistente",
   "Sem interesse",
   "Convertido",
+  "Tratado",
+];
+
+const STATUS_ATIVOS = [
+  "Pendente",
+  "Em negociação",
+  "Aguardando retorno",
 ];
 
 const FILTROS_INICIAIS = {
@@ -112,8 +119,10 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
     total: 0,
     contatados: 0,
     pendentes: 0,
+    emNegociacao: 0,
     disponiveis: 0,
     cidades: [],
+    consultoresSemLeads: [],
   });
 
   const leadSelecionado = contatos.find(
@@ -491,9 +500,41 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
               return false;
             }
 
+            if (!STATUS_ATIVOS.includes(leadAtualizado.status) &&
+              filtros.responsavel !== "tratados") {
+              return false;
+            }
+
+            if (filtros.responsavel === "tratados" &&
+              STATUS_ATIVOS.includes(leadAtualizado.status)) {
+              return false;
+            }
+
             return true;
           }),
       );
+
+      if (
+        leadAtualizado.carteiraRestante === 0 &&
+        ["admin", "master"].includes(user?.role)
+      ) {
+        await alertaIW.fire({
+          icon: "warning",
+          title: "Carteira do consultor finalizada",
+          text: `${leadAtualizado.responsavelName || "O consultor"} concluiu a listagem ativa. Direcione mais leads para continuar os atendimentos.`,
+          confirmButtonText: "Entendi",
+        });
+      } else if (
+        leadAtualizado.carteiraRestante === 0 &&
+        user?.role === "consultor"
+      ) {
+        await alertaIW.fire({
+          icon: "info",
+          title: "Sua carteira foi finalizada",
+          text: "Você concluiu a listagem atual. Aguarde a administração direcionar novos leads.",
+          confirmButtonText: "Entendi",
+        });
+      }
     } catch (error) {
       await alertaIW.fire({
         icon: "warning",
@@ -622,6 +663,19 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
           </div>
         )}
 
+        {isAdmin &&
+          indicadores.consultoresSemLeads?.length > 0 && (
+            <div className="supervision-banner" role="alert">
+              <strong>Carteiras que precisam de novos leads</strong>
+              <span>
+                {indicadores.consultoresSemLeads
+                  .map((consultor) => consultor.name)
+                  .join(", ")}{" "}
+                não possuem leads ativos. Direcione mais leads.
+              </span>
+            </div>
+          )}
+
         <section className="dashboard-stats">
           <button
             type="button"
@@ -665,6 +719,20 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
             </div>
             <span>Pendentes</span>
             <strong>{indicadores.pendentes}</strong>
+          </button>
+
+          <button
+            type="button"
+            className="stat-card stat-negotiation"
+            onClick={() =>
+              abrirCarteira(isAdmin ? "" : "meus", "Em negociação")
+            }
+          >
+            <div className="stat-icon">
+              <CircleCheck />
+            </div>
+            <span>Em negociação</span>
+            <strong>{indicadores.emNegociacao}</strong>
           </button>
 
           <button
@@ -775,6 +843,16 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
                   Todos os leads
                 </button>
               )}
+
+              <button
+                type="button"
+                className={
+                  filtros.responsavel === "tratados" ? "wallet-active" : ""
+                }
+                onClick={() => abrirCarteira("tratados")}
+              >
+                Leads gerais
+              </button>
             </div>
           )}
 
@@ -864,6 +942,9 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
 
                 {!modoSupervisao && (
                   <option value="meus">Minha carteira</option>
+                )}
+                {!modoSupervisao && (
+                  <option value="tratados">Leads gerais</option>
                 )}
                 {isMaster &&
                   consultores
@@ -1035,6 +1116,9 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
               contatos.map((contato) => {
               const meuLead =
                 !modoSupervisao && contato.responsavelId === user?.id;
+              const possoTratarLead =
+                !modoSupervisao &&
+                (meuLead || (isAdmin && Boolean(contato.responsavelId)));
 
                 const disponivel = !contato.responsavelId;
 
@@ -1084,7 +1168,7 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
                         </label>
                       )}
 
-                      {meuLead && (
+                      {possoTratarLead && (
                         <>
                           <select
                             className="lead-status-select"
@@ -1193,7 +1277,8 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
 
       {leadSelecionado &&
         (leadSelecionado.responsavelId === user?.id ||
-          (isMaster && Boolean(leadSelecionado.responsavelId))) && (
+          (isMaster && Boolean(leadSelecionado.responsavelId)) ||
+          filtros.responsavel === "tratados") && (
           <LeadModal
             key={leadSelecionado.id}
             lead={leadSelecionado}

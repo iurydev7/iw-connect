@@ -47,6 +47,7 @@ const Lead = sequelize.define(
           "Contato inexistente",
           "Sem interesse",
           "Convertido",
+          "Tratado",
         ]],
       },
     },
