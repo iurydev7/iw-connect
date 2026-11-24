@@ -82,6 +82,39 @@ export async function criar(dados, ator) {
     throw erro(403, "Somente o Master pode criar administradores.");
   }
 
+  const existente = await User.findOne({
+    where: { email },
+    paranoid: false,
+  });
+
+  if (existente?.deletedAt) {
+    return sequelize.transaction(async (transaction) => {
+      await existente.update(
+        {
+          name,
+          email,
+          passwordHash: await bcrypt.hash(password, 12),
+          role,
+        },
+        { transaction },
+      );
+      await existente.restore({ transaction });
+
+      return {
+        id: existente.id,
+        name: existente.name,
+        email: existente.email,
+        role: existente.role,
+        reativado: true,
+        message: "Usuário reativado com sucesso!",
+      };
+    });
+  }
+
+  if (existente) {
+    throw erro(409, "Este e-mail já está cadastrado.");
+  }
+
   try {
     const user = await User.create({
       id: randomUUID(),
@@ -96,6 +129,8 @@ export async function criar(dados, ator) {
       name: user.name,
       email: user.email,
       role: user.role,
+      reativado: false,
+      message: "Usuário cadastrado com sucesso!",
     };
   } catch (error) {
     if (error instanceof UniqueConstraintError) {
