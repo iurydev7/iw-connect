@@ -84,11 +84,17 @@ const includeResponsavel = {
 
 // IMPORTAÇÃO DE LEADS
 
-export async function importar(leads) {
+export async function importar(leads, user) {
+  if (!["admin", "master", "consultor"].includes(user?.role)) {
+    throw erro(403, "Seu perfil não pode importar leads.");
+  }
+
   if (!Array.isArray(leads) || leads.length === 0 || leads.length > 500) {
     throw erro(400, "Envie entre 1 e 500 leads.");
   }
 
+  const origem = user.role === "consultor" ? "manual" : "plataforma";
+  const responsavelId = user.role === "consultor" ? user.id : null;
   let importados = 0;
   let duplicados = 0;
   let invalidos = 0;
@@ -122,8 +128,9 @@ export async function importar(leads) {
         cidade,
         uf,
         bairro,
+        origem,
         status: "Pendente",
-        responsavelId: null,
+        responsavelId,
       });
 
       return "importado";
@@ -188,6 +195,11 @@ export async function listar(filtros, user) {
   const uf = normalizarLocalidade(filtros.uf);
   const bairro = normalizarLocalidade(filtros.bairro);
   const status = texto(filtros.status);
+  const origem = texto(filtros.origem);
+
+  if (origem && !["plataforma", "manual"].includes(origem)) {
+    throw erro(400, "Origem de lead inválida.");
+  }
 
   if (busca) {
     where[Op.or] = [
@@ -200,15 +212,15 @@ export async function listar(filtros, user) {
   if (cidade) where.cidade = cidade;
   if (uf) where.uf = uf;
   if (bairro) where.bairro = bairro;
+  if (origem) where.origem = origem;
 
   if (filtros.responsavel === "tratados") {
     where.status = { [Op.notIn]: STATUS_ATIVOS };
     if (user.role === "consultor") {
       where.responsavelId = user.id;
     }
-    if (user.role === "consultor") {
-      where.responsavelId = user.id;
-    }
+  } else if (status === "Todos") {
+    delete where.status;
   } else if (status) {
     if (!STATUS_VALIDOS.includes(status)) {
       throw erro(400, "Status inválido.");
@@ -228,8 +240,6 @@ export async function listar(filtros, user) {
   }
 
   // Controle de acesso à carteira comercial
-
-  const isGestor = ["admin", "master"].includes(user.role);
 
   if (filtros.responsavel === "tratados") {
     where.status = { [Op.notIn]: STATUS_ATIVOS };

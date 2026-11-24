@@ -4,6 +4,7 @@ import {
   Users,
   CircleCheck,
   Clock3,
+  ChevronDown,
   Upload,
   MessageCircle,
   Eye,
@@ -45,6 +46,7 @@ const FILTROS_INICIAIS = {
   uf: "",
   bairro: "",
   status: "",
+  origem: "",
   dataEntrada: "",
   dataContato: "",
   responsavel: "livres",
@@ -73,7 +75,13 @@ function contatoDaPlanilha(linha, index) {
   };
 }
 
-function Dashboard({ responsavelInicial = null, onReturnHome }) {
+function Dashboard({
+  page = "dashboard",
+  filtrosIniciais = null,
+  responsavelInicial = null,
+  onReturnHome,
+  onNavigate,
+}) {
   const { user } = useAuth();
 
   const isMaster = user?.role === "master";
@@ -91,22 +99,40 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
   const [distribuindo, setDistribuindo] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
 
-  const [filtros, setFiltros] = useState({
-    ...FILTROS_INICIAIS,
-    responsavel:
-      isMaster && responsavelInicial
-        ? responsavelInicial
+  const responsavelPadrao =
+    page === "wallet"
+      ? "meus"
+      : page === "leads"
+        ? isAdmin
+          ? ""
+          : "meus"
         : isAdmin
           ? "livres"
-          : "meus",
+          : "meus";
+
+  const [filtros, setFiltros] = useState({
+    ...FILTROS_INICIAIS,
+    responsavel: responsavelPadrao,
+    origem:
+      page === "leads" ? (isAdmin ? "plataforma" : "manual") : "",
+    status: page === "leads" ? "Todos" : "",
+    ...filtrosIniciais,
+    ...(isMaster && responsavelInicial
+      ? { responsavel: responsavelInicial }
+      : {}),
   });
   const modoSupervisao =
     isMaster &&
     (Boolean(responsavelInicial) ||
       Boolean(
         filtros.responsavel &&
-          !["livres", "meus"].includes(filtros.responsavel),
+          !["livres", "meus", "tratados"].includes(filtros.responsavel),
       ));
+  const isOverview = page === "dashboard";
+  const isWalletPage = page === "wallet";
+  const isLeadsPage = page === "leads";
+  const podeImportarLeads =
+    isAdmin || user?.role === "consultor";
   const [pagina, setPagina] = useState(1);
   const [totalFiltrado, setTotalFiltrado] = useState(0);
   const [versao, setVersao] = useState(0);
@@ -134,8 +160,12 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
     (consultor) => consultor.id === filtros.responsavel,
   );
   const podeDistribuirMassa =
-    isAdmin && !modoSupervisao && filtros.responsavel === "livres";
-  const podeExcluirMassa = isMaster && !modoSupervisao;
+    isAdmin &&
+    isLeadsPage &&
+    !modoSupervisao &&
+    filtros.origem !== "manual" &&
+    ["livres", ""].includes(filtros.responsavel);
+  const podeExcluirMassa = isMaster && isLeadsPage && !modoSupervisao;
   const modoAcaoEmMassa =
     podeDistribuirMassa && acaoEmMassa === "distribuir"
       ? "distribuir"
@@ -247,10 +277,28 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
     setFiltros((anteriores) => ({
       ...FILTROS_INICIAIS,
       responsavel: anteriores.responsavel,
+      origem: anteriores.origem,
     }));
 
     setLeadsSelecionados([]);
     setPagina(1);
+  }
+
+  function selecionarOrigem(origem) {
+    setFiltros((anteriores) => ({
+      ...anteriores,
+      origem,
+      ...(isLeadsPage && !modoSupervisao
+        ? {
+            responsavel: isAdmin ? "" : "meus",
+            status: "Todos",
+          }
+        : {}),
+    }));
+
+    setLeadsSelecionados([]);
+    setPagina(1);
+    setCarregando(true);
   }
 
   async function enviarLeads(leads) {
@@ -500,15 +548,14 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
               return false;
             }
 
-            if (!STATUS_ATIVOS.includes(leadAtualizado.status) &&
-              filtros.responsavel !== "tratados") {
-              return false;
+            if (filtros.responsavel === "tratados") {
+              return !STATUS_ATIVOS.includes(leadAtualizado.status);
             }
 
-            if (filtros.responsavel === "tratados" &&
-              STATUS_ATIVOS.includes(leadAtualizado.status)) {
-              return false;
-            }
+            if (filtros.status === "Todos") return true;
+            if (filtros.status) return leadAtualizado.status === filtros.status;
+
+            if (!STATUS_ATIVOS.includes(leadAtualizado.status)) return false;
 
             return true;
           }),
@@ -611,6 +658,16 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
     });
   }
 
+  function abrirIndicador(responsavel, status = "") {
+    abrirCarteira(responsavel, status);
+    if (!modoSupervisao) {
+      onNavigate?.(
+        responsavel === "meus" ? "wallet" : "leads",
+        { responsavel, status },
+      );
+    }
+  }
+
   function voltarAoPainelPrincipal() {
     setFiltros({
       ...FILTROS_INICIAIS,
@@ -622,12 +679,30 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
   }
 
   return (
-    <main className="dashboard" id="dashboard">
+    <main className={`dashboard dashboard-page-${page}`} id="dashboard">
       <div className="dashboard-container">
         <section className="dashboard-heading">
-          <span className="dashboard-label">PAINEL DE CONTROLE</span>
-          <h1>Gestão de leads</h1>
-          <p>Organize e acompanhe sua operação comercial.</p>
+          <span className="dashboard-label">
+            {isOverview
+              ? "PAINEL DE CONTROLE"
+              : isWalletPage
+                ? "ATENDIMENTO"
+                : "GESTÃO COMERCIAL"}
+          </span>
+          <h1>
+            {isOverview
+              ? "Visão geral"
+              : isWalletPage
+                ? "Minha carteira"
+                : "Leads gerais"}
+          </h1>
+          <p>
+            {isOverview
+              ? "Acompanhe os principais indicadores da operação."
+              : isWalletPage
+                ? "Acompanhe e atualize seus atendimentos."
+                : "Consulte, importe e distribua leads."}
+          </p>
         </section>
 
         {modoSupervisao && (
@@ -663,7 +738,8 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
           </div>
         )}
 
-        {isAdmin &&
+        {isOverview &&
+          isAdmin &&
           indicadores.consultoresSemLeads?.length > 0 && (
             <div className="supervision-banner" role="alert">
               <strong>Carteiras que precisam de novos leads</strong>
@@ -676,11 +752,14 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
             </div>
           )}
 
-        <section className="dashboard-stats">
+        {isOverview && (
+          <section className="dashboard-stats">
           <button
             type="button"
             className="stat-card stat-total"
-            onClick={() => abrirCarteira(isAdmin ? "" : "meus")}
+            onClick={() =>
+              abrirIndicador(isAdmin ? "" : "meus")
+            }
           >
             <div className="stat-icon">
               <Users />
@@ -700,7 +779,9 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
           <button
             type="button"
             className="stat-card stat-contacted"
-            onClick={() => abrirCarteira(isAdmin ? "" : "meus", "Contatado")}
+            onClick={() =>
+              abrirIndicador(isAdmin ? "" : "meus", "Contatado")
+            }
           >
             <div className="stat-icon">
               <CircleCheck />
@@ -712,7 +793,9 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
           <button
             type="button"
             className="stat-card stat-pending"
-            onClick={() => abrirCarteira(isAdmin ? "" : "meus", "Pendente")}
+            onClick={() =>
+              abrirIndicador(isAdmin ? "" : "meus", "Pendente")
+            }
           >
             <div className="stat-icon">
               <Clock3 />
@@ -725,7 +808,7 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
             type="button"
             className="stat-card stat-negotiation"
             onClick={() =>
-              abrirCarteira(isAdmin ? "" : "meus", "Em negociação")
+              abrirIndicador(isAdmin ? "" : "meus", "Em negociação")
             }
           >
             <div className="stat-icon">
@@ -738,7 +821,7 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
           <button
             type="button"
             className="stat-card stat-available"
-            onClick={() => abrirCarteira("livres")}
+            onClick={() => abrirIndicador("livres")}
             disabled={modoSupervisao}
             title={
               modoSupervisao
@@ -752,14 +835,31 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
             <span>Disponíveis</span>
             <strong>{indicadores.disponiveis}</strong>
           </button>
-        </section>
+          </section>
+        )}
 
-        {isAdmin && !modoSupervisao && (
-          <section className="dashboard-import" id="importar">
-            <h2>Importar contatos</h2>
-            <p>Adicione novos leads à carteira comercial.</p>
-
-            <div className="import-area">
+        {isLeadsPage && podeImportarLeads && !modoSupervisao && (
+          <details className="dashboard-import import-details" id="importar">
+            <summary>
+              <span>
+                <strong>
+                  {isAdmin ? "Importar leads da plataforma" : "Incluir meus leads"}
+                </strong>
+                <small>
+                  {isAdmin
+                    ? "Importar contatos que serão distribuídos pela equipe"
+                    : "Importe contatos para sua carteira pessoal"}
+                </small>
+              </span>
+              <ChevronDown size={18} aria-hidden="true" />
+            </summary>
+            <div className="import-details-content">
+              <p>
+                {isAdmin
+                  ? "Adicione leads à base da plataforma."
+                  : "Esses leads ficarão visíveis somente para você e para a administração."}
+              </p>
+              <div className="import-area">
               <h3>Cole sua lista de contatos</h3>
               <p>Nome;Telefone;Cidade;UF;Bairro</p>
 
@@ -797,20 +897,65 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
                 className="file-input"
                 disabled={importando}
               />
+              </div>
             </div>
-          </section>
+          </details>
         )}
 
-        <section className="contacts-section" id="contatos">
+        {(isWalletPage || isLeadsPage) && (
+          <section className="contacts-section" id="contatos">
           <div className="contacts-header">
             <div>
-              <h2>Carteira de leads</h2>
+              <h2>{isWalletPage ? "Seus leads" : "Base de leads"}</h2>
               <p className="contacts-subtitle">
                 Consulte e acompanhe os atendimentos.
               </p>
             </div>
           </div>
-          {!modoSupervisao && (
+          <div className="lead-origin-tabs" role="group" aria-label="Origem dos leads">
+            <button
+              type="button"
+              className={!filtros.origem ? "wallet-active" : ""}
+              onClick={() => selecionarOrigem("")}
+            >
+              Todas as origens
+            </button>
+            <button
+              type="button"
+              className={filtros.origem === "plataforma" ? "wallet-active" : ""}
+              onClick={() => selecionarOrigem("plataforma")}
+            >
+              Da plataforma
+            </button>
+            <button
+              type="button"
+              className={filtros.origem === "manual" ? "wallet-active" : ""}
+              onClick={() => selecionarOrigem("manual")}
+            >
+              {isAdmin ? "Incluídos manualmente" : "Incluídos por mim"}
+            </button>
+          </div>
+
+          {isWalletPage && (
+            <div className="wallet-status-tabs" role="group" aria-label="Status da carteira">
+              <button
+                type="button"
+                className={filtros.status !== "Todos" ? "wallet-active" : ""}
+                onClick={() => alterarFiltro("status", "")}
+              >
+                Leads ativos
+              </button>
+              <button
+                type="button"
+                className={filtros.status === "Todos" ? "wallet-active" : ""}
+                onClick={() => alterarFiltro("status", "Todos")}
+              >
+                Todos da carteira
+              </button>
+            </div>
+          )}
+
+          {isLeadsPage && !modoSupervisao && (
             <div className="wallet-tabs">
               {isAdmin && (
                 <button
@@ -838,7 +983,7 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
                 <button
                   type="button"
                   className={filtros.responsavel === "" ? "wallet-active" : ""}
-                  onClick={() => abrirCarteira("")}
+                  onClick={() => abrirCarteira("", "Todos")}
                 >
                   Todos os leads
                 </button>
@@ -868,6 +1013,12 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
               />
             </div>
 
+            <details className="advanced-filters">
+              <summary>
+                <span>Filtros avançados</span>
+                <ChevronDown size={16} aria-hidden="true" />
+              </summary>
+              <div className="advanced-filter-grid">
             <div className="filter-group">
               <label htmlFor="cidade">Cidade</label>
               <select
@@ -915,7 +1066,8 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
                 value={filtros.status}
                 onChange={(e) => alterarFiltro("status", e.target.value)}
               >
-                <option value="">Todos os status</option>
+                <option value="">Leads ativos</option>
+                <option value="Todos">Todos os status</option>
 
                 {STATUS.map((status) => (
                   <option key={status} value={status}>
@@ -976,6 +1128,8 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
                 onChange={(e) => alterarFiltro("dataContato", e.target.value)}
               />
             </div>
+              </div>
+            </details>
           </div>
 
           <div className="filter-footer">
@@ -992,11 +1146,17 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
           {erroConsulta && <p role="alert">{erroConsulta}</p>}
 
           {(podeDistribuirMassa || podeExcluirMassa) && (
-            <section
-              className={`distribution-panel mass-action-panel ${
-                modoAcaoEmMassa === "excluir" ? "bulk-delete-panel" : ""
-              }`}
-            >
+            <details className="mass-actions-disclosure">
+              <summary>
+                <span>Ações em massa</span>
+                <small>{leadsSelecionados.length} selecionados</small>
+                <ChevronDown size={16} aria-hidden="true" />
+              </summary>
+              <section
+                className={`distribution-panel mass-action-panel ${
+                  modoAcaoEmMassa === "excluir" ? "bulk-delete-panel" : ""
+                }`}
+              >
               <div className="mass-action-header">
                 <div>
                   <h3>
@@ -1107,7 +1267,8 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
                   </button>
                 )}
               </div>
-            </section>
+                </section>
+              </details>
           )}
 
           <div className="contacts-list">
@@ -1138,6 +1299,11 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
                         data-status={contato.status}
                       >
                         {contato.status}
+                      </span>
+                      <span className="lead-origin">
+                        {contato.origem === "manual"
+                          ? "Incluído manualmente"
+                          : "Da plataforma"}
                       </span>
 
                       <span className="lead-owner">
@@ -1234,13 +1400,13 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
                       {modoAcaoEmMassa === "excluir" && podeExcluirMassa && (
                         <button
                           type="button"
-                          className="btn-delete"
+                          className="btn-delete btn-delete-icon"
                           onClick={() => excluirLeadIndividual(contato)}
                           disabled={excluindo}
                           aria-label={`Excluir lead ${contato.nome}`}
+                          title="Excluir lead"
                         >
                           <Trash2 size={16} />
-                          Excluir
                         </button>
                       )}
                     </div>
@@ -1272,7 +1438,8 @@ function Dashboard({ responsavelInicial = null, onReturnHome }) {
               Próxima
             </button>
           </div>
-        </section>
+          </section>
+        )}
       </div>
 
       {leadSelecionado &&

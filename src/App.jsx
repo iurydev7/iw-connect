@@ -1,5 +1,5 @@
 import { useState } from "react";
-import Header from "./components/Header/Header";
+import AppShell from "./components/AppShell/AppShell";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import Login from "./pages/Login/Login";
 import AdminUsers from "./pages/AdminUsers/AdminUsers";
@@ -13,41 +13,47 @@ function AreaLogada() {
   const { user } = useAuth();
 
   const [pagina, setPagina] = useState("dashboard");
+  const [filtrosPagina, setFiltrosPagina] = useState(null);
   const [carteiraSupervisionada, setCarteiraSupervisionada] = useState(null);
 
   const isAdmin = ["admin", "master"].includes(user?.role);
-  const exibirEquipe = isAdmin && pagina === "equipe";
+  const exibirEquipe = isAdmin && pagina === "team";
 
   function abrirDashboard() {
     setCarteiraSupervisionada(null);
+    setFiltrosPagina(null);
     setPagina("dashboard");
+  }
+
+  function navegar(paginaDestino, filtros = null) {
+    setCarteiraSupervisionada(null);
+    setFiltrosPagina(filtros);
+    setPagina(paginaDestino);
   }
 
   function visualizarCarteira(consultorId) {
     if (user?.role !== "master") return;
 
     setCarteiraSupervisionada(consultorId);
-    setPagina("dashboard");
+    setFiltrosPagina(null);
+    setPagina("wallet");
   }
 
   return (
-    <>
-      <Header
-        onOpenUsers={() => setPagina("equipe")}
-        onOpenDashboard={abrirDashboard}
-        showNav={!exibirEquipe}
-      />
-
+    <AppShell page={pagina} onNavigate={navegar}>
       {exibirEquipe ? (
         <AdminUsers onViewPortfolio={visualizarCarteira} />
       ) : (
         <Dashboard
-          key={carteiraSupervisionada || "padrao"}
+          key={`${pagina}-${carteiraSupervisionada || "padrao"}`}
+          page={pagina}
+          filtrosIniciais={filtrosPagina}
           responsavelInicial={carteiraSupervisionada}
           onReturnHome={abrirDashboard}
+          onNavigate={navegar}
         />
       )}
-    </>
+    </AppShell>
   );
 }
 
