@@ -206,18 +206,21 @@ function AdminUsers({ onViewPortfolio }) {
       if (editando) {
         await userService.editar(usuarioEditando.id, dados);
       } else {
-        await userService.criar({
+        const resultado = await userService.criar({
           ...dados,
           password: form.password,
           role: isMaster ? form.role : "consultor",
         });
+
+        setSucesso(
+          resultado?.message ||
+            `${isMaster ? tipoUsuario : "Consultor"} cadastrado com sucesso!`,
+        );
       }
 
-      setSucesso(
-        editando
-          ? "Usuário atualizado com sucesso!"
-          : `${isMaster ? tipoUsuario : "Consultor"} cadastrado com sucesso!`,
-      );
+      if (editando) {
+        setSucesso("Usuário atualizado com sucesso!");
+      }
 
       setFormAberto(false);
       setUsuarioEditando(null);
