@@ -51,8 +51,31 @@ export function alterarStatus(id, status) {
     body: JSON.stringify({ status }),
   });
 }
-export function obterIndicadores() {
-  return apiRequest("/leads/metadata");
+
+export function remover(id) {
+  return apiRequest(`/leads/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export function removerEmMassa(leadIds) {
+  return apiRequest("/leads/bulk", {
+    method: "DELETE",
+    body: JSON.stringify({ leadIds }),
+  });
+}
+
+export function obterIndicadores(responsavel) {
+  const params = new URLSearchParams();
+
+  if (responsavel) {
+    params.set("responsavel", responsavel);
+  }
+
+  const queryString = params.toString();
+  const query = queryString ? `?${queryString}` : "";
+
+  return apiRequest(`/leads/metadata${query}`);
 }
 
 export function listarHistorico(id) {

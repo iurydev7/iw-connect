@@ -1,7 +1,14 @@
 import bcrypt from "bcrypt";
 import { randomUUID } from "node:crypto";
 import { UniqueConstraintError } from "sequelize";
-import { User } from "../models/index.js";
+import {
+  sequelize,
+  User,
+  Session,
+  Lead,
+  Atendimento,
+  Lembrete,
+} from "../models/index.js";
 
 const atributos = ["id", "name", "email", "role"];
 
@@ -11,7 +18,9 @@ function erro(status, message) {
 
 function validarDados(dados) {
   const name = String(dados?.name ?? "").trim();
-  const email = String(dados?.email ?? "").toLowerCase().trim();
+  const email = String(dados?.email ?? "")
+    .toLowerCase()
+    .trim();
 
   if (
     !name ||
@@ -25,6 +34,34 @@ function validarDados(dados) {
   return { name, email };
 }
 
+function validarSenha(password) {
+  if (
+    typeof password !== "string" ||
+    password.length < 12 ||
+    Buffer.byteLength(password, "utf8") > 72
+  ) {
+    throw erro(
+      400,
+      "A senha deve ter pelo menos 12 caracteres e até 72 bytes.",
+    );
+  }
+
+  return password;
+}
+
+// Define quem pode administrar cada usuário.
+function podeGerenciar(ator, alvo) {
+  if (!ator || !alvo || ator.id === alvo.id) {
+    return false;
+  }
+
+  if (alvo.role === "consultor") {
+    return ["admin", "master"].includes(ator.role);
+  }
+
+  return ator.role === "master" && alvo.role === "admin";
+}
+
 export async function listar() {
   return User.findAll({
     attributes: atributos,
@@ -32,17 +69,17 @@ export async function listar() {
   });
 }
 
-export async function criar(dados) {
+export async function criar(dados, ator) {
   const { name, email } = validarDados(dados);
+  const password = validarSenha(dados?.password);
+  const role = dados?.role ?? "consultor";
 
-  const password = dados?.password;
+  if (!["consultor", "admin"].includes(role)) {
+    throw erro(400, "Perfil de acesso inválido.");
+  }
 
-  if (
-    typeof password !== "string" ||
-    password.length < 12 ||
-    Buffer.byteLength(password, "utf8") > 72
-  ) {
-    throw erro(400, "Informe uma senha válida com pelo menos 12 caracteres.");
+  if (role === "admin" && ator?.role !== "master") {
+    throw erro(403, "Somente o Master pode criar administradores.");
   }
 
   try {
@@ -51,7 +88,7 @@ export async function criar(dados) {
       name,
       email,
       passwordHash: await bcrypt.hash(password, 12),
-      role: "consultor",
+      role,
     });
 
     return {
@@ -69,28 +106,26 @@ export async function criar(dados) {
   }
 }
 
-export async function editar(id, dados) {
+export async function editar(id, dados, ator) {
   const { name, email } = validarDados(dados);
+  const alvo = await User.findByPk(id);
 
-  const user = await User.findOne({
-    where: {
-      id,
-      role: "consultor",
-    },
-  });
+  if (!alvo) {
+    throw erro(404, "Usuário não encontrado.");
+  }
 
-  if (!user) {
-    throw erro(404, "Consultor não encontrado.");
+  if (!podeGerenciar(ator, alvo)) {
+    throw erro(403, "Sem permissão para editar este usuário.");
   }
 
   try {
-    await user.update({ name, email });
+    await alvo.update({ name, email });
 
     return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
+      id: alvo.id,
+      name: alvo.name,
+      email: alvo.email,
+      role: alvo.role,
     };
   } catch (error) {
     if (error instanceof UniqueConstraintError) {
@@ -99,4 +134,114 @@ export async function editar(id, dados) {
 
     throw error;
   }
+}
+
+export async function redefinirSenha(id, novaSenha, ator) {
+  const password = validarSenha(novaSenha);
+  const alvo = await User.findByPk(id);
+
+  if (!alvo) {
+    throw erro(404, "Usuário não encontrado.");
+  }
+
+  if (!podeGerenciar(ator, alvo)) {
+    throw erro(403, "Sem permissão para redefinir a senha deste usuário.");
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+
+  await sequelize.transaction(async (transaction) => {
+    await alvo.update({ passwordHash }, { transaction });
+
+    // Encerra as sessões existentes do usuário.
+    await Session.destroy({
+      where: { userId: alvo.id },
+      transaction,
+    });
+  });
+
+  return {
+    message: "Senha atualizada. Sessões anteriores encerradas.",
+  };
+}
+export async function remover(id, ator) {
+  return sequelize.transaction(async (transaction) => {
+    const usuario = await User.findByPk(id, {
+      transaction,
+    });
+
+    if (!usuario) {
+      throw erro(404, "Usuário não encontrado.");
+    }
+
+    if (!podeGerenciar(ator, usuario)) {
+      throw erro(403, "Você não possui permissão para remover este usuário.");
+    }
+
+    // Localiza leads atualmente atribuídos.
+    const leads = await Lead.findAll({
+      attributes: ["id"],
+      where: {
+        responsavelId: usuario.id,
+      },
+      transaction,
+    });
+
+    // Libera os leads para redistribuição.
+    if (leads.length > 0) {
+      await Lead.update(
+        {
+          responsavelId: null,
+        },
+        {
+          where: {
+            responsavelId: usuario.id,
+          },
+          transaction,
+        },
+      );
+
+      // Registra a liberação no histórico.
+      await Atendimento.bulkCreate(
+        leads.map((lead) => ({
+          leadId: lead.id,
+          userId: ator.id,
+          type: "reserva",
+          description: `Lead liberado após remoção do usuário ${usuario.name}.`,
+        })),
+        { transaction },
+      );
+    }
+
+    // Cancela lembretes pendentes do usuário.
+    await Lembrete.update(
+      {
+        status: "cancelado",
+        resolvedAt: new Date(),
+      },
+      {
+        where: {
+          userId: usuario.id,
+          status: "pendente",
+        },
+        transaction,
+      },
+    );
+
+    // Encerra sessões.
+    await Session.destroy({
+      where: {
+        userId: usuario.id,
+      },
+      transaction,
+    });
+
+    // Remoção lógica: preserva histórico e relacionamentos.
+    await usuario.destroy({ transaction });
+
+    return {
+      message: "Usuário removido da equipe com sucesso.",
+      leadsLiberados: leads.length,
+    };
+  });
 }

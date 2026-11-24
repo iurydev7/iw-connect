@@ -17,3 +17,14 @@ export function editar(id, dados) {
     body: JSON.stringify(dados),
   });
 }
+export function redefinirSenha(id, password) {
+  return apiRequest(`/users/${id}/password`, {
+    method: "PATCH",
+    body: JSON.stringify({ password }),
+  });
+}
+export function remover(id) {
+  return apiRequest(`/users/${id}`, {
+    method: "DELETE",
+  });
+}

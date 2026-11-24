@@ -55,6 +55,34 @@ body:has(.dashboard) {
   line-height: 1.6;
 }
 
+.supervision-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: -12px 0 28px;
+  padding: 16px 18px;
+  color: var(--iw-text);
+  background: rgba(201, 162, 75, 0.08);
+  border: 1px solid rgba(201, 162, 75, 0.3);
+  border-radius: 12px;
+}
+
+.supervision-banner strong {
+  color: var(--iw-gold-light);
+  font-size: 14px;
+}
+
+.supervision-banner span {
+  color: var(--iw-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.supervision-home-button {
+  align-self: flex-start;
+  margin-top: 6px;
+}
+
 /* Indicadores */
 
 .dashboard-stats {
@@ -330,6 +358,11 @@ body:has(.dashboard) {
 
 .btn-clear:disabled {
   opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-delete:disabled {
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
@@ -773,15 +806,67 @@ button.stat-card {
   border-radius: 14px;
 }
 
+.bulk-delete-panel {
+  background: rgba(239, 68, 68, 0.05);
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
 .distribution-panel h3 {
   color: var(--iw-gold-light);
   font-size: 17px;
   margin-bottom: 8px;
 }
 
+.bulk-delete-panel h3 {
+  color: #fca5a5;
+}
+
 .distribution-panel p {
   color: var(--iw-text-secondary);
   font-size: 13px;
+}
+
+.mass-action-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.mass-action-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--iw-border);
+  border-radius: 10px;
+  background: rgba(6, 19, 38, 0.45);
+}
+
+.mass-action-tabs button {
+  padding: 8px 13px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--iw-text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mass-action-tabs button.active {
+  background: rgba(201, 162, 75, 0.18);
+  color: var(--iw-gold-light);
+}
+
+.mass-action-tabs button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.bulk-delete-panel .mass-action-tabs button.active {
+  background: rgba(239, 68, 68, 0.14);
+  color: #fca5a5;
 }
 
 .distribution-actions {
@@ -807,6 +892,15 @@ button.stat-card {
 }
 
 @media (max-width: 600px) {
+  .mass-action-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .mass-action-tabs {
+    width: fit-content;
+  }
+
   .distribution-actions > * {
     width: 100%;
   }
