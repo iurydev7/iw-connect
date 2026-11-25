@@ -23,7 +23,7 @@ async function executar(res, operacao, status = 200) {
 export function importar(req, res) {
   return executar(
     res,
-    () => leadService.importar(req.body?.leads)
+    () => leadService.importar(req.body?.leads, req.user)
   );
 }
 

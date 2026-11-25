@@ -4,7 +4,10 @@ export function listar(filtros = {}) {
   const params = new URLSearchParams();
 
   Object.entries(filtros).forEach(([chave, valor]) => {
-    if (valor !== "" && valor != null) {
+    if (
+      (chave === "responsavel" && typeof valor === "string") ||
+      (valor !== "" && valor != null)
+    ) {
       params.set(chave, valor);
     }
   });
