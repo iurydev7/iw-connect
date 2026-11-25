@@ -21,6 +21,13 @@ const STATUS_VALIDOS = [
   "Contato inexistente",
   "Sem interesse",
   "Convertido",
+  "Tratado",
+];
+
+const STATUS_ATIVOS = [
+  "Pendente",
+  "Em negociação",
+  "Aguardando retorno",
 ];
 
 function erro(status, message) {
@@ -77,11 +84,17 @@ const includeResponsavel = {
 
 // IMPORTAÇÃO DE LEADS
 
-export async function importar(leads) {
+export async function importar(leads, user) {
+  if (!["admin", "master", "consultor"].includes(user?.role)) {
+    throw erro(403, "Seu perfil não pode importar leads.");
+  }
+
   if (!Array.isArray(leads) || leads.length === 0 || leads.length > 500) {
     throw erro(400, "Envie entre 1 e 500 leads.");
   }
 
+  const origem = user.role === "consultor" ? "manual" : "plataforma";
+  const responsavelId = user.role === "consultor" ? user.id : null;
   let importados = 0;
   let duplicados = 0;
   let invalidos = 0;
@@ -115,8 +128,9 @@ export async function importar(leads) {
         cidade,
         uf,
         bairro,
+        origem,
         status: "Pendente",
-        responsavelId: null,
+        responsavelId,
       });
 
       return "importado";
@@ -181,6 +195,11 @@ export async function listar(filtros, user) {
   const uf = normalizarLocalidade(filtros.uf);
   const bairro = normalizarLocalidade(filtros.bairro);
   const status = texto(filtros.status);
+  const origem = texto(filtros.origem);
+
+  if (origem && !["plataforma", "manual"].includes(origem)) {
+    throw erro(400, "Origem de lead inválida.");
+  }
 
   if (busca) {
     where[Op.or] = [
@@ -193,13 +212,23 @@ export async function listar(filtros, user) {
   if (cidade) where.cidade = cidade;
   if (uf) where.uf = uf;
   if (bairro) where.bairro = bairro;
+  if (origem) where.origem = origem;
 
-  if (status) {
+  if (filtros.responsavel === "tratados") {
+    where.status = { [Op.notIn]: STATUS_ATIVOS };
+    if (user.role === "consultor") {
+      where.responsavelId = user.id;
+    }
+  } else if (status === "Todos") {
+    delete where.status;
+  } else if (status) {
     if (!STATUS_VALIDOS.includes(status)) {
       throw erro(400, "Status inválido.");
     }
 
     where.status = status;
+  } else {
+    where.status = { [Op.in]: STATUS_ATIVOS };
   }
 
   if (filtros.dataEntrada) {
@@ -212,14 +241,14 @@ export async function listar(filtros, user) {
 
   // Controle de acesso à carteira comercial
 
-  const isGestor = ["admin", "master"].includes(user.role);
-
-  // Controle de acesso à carteira comercial
-
-  if (user.role === "consultor") {
+  if (filtros.responsavel === "tratados") {
+    where.status = { [Op.notIn]: STATUS_ATIVOS };
+  } else if (user.role === "consultor") {
     where.responsavelId = user.id;
   } else if (["admin", "master"].includes(user.role)) {
-    if (filtros.responsavel === "meus") {
+    if (filtros.responsavel === "tratados") {
+      // Leads tratados ficam disponíveis em uma área geral para todos os perfis.
+    } else if (filtros.responsavel === "meus") {
       where.responsavelId = user.id;
     } else if (filtros.responsavel === "livres") {
       where.responsavelId = null;
@@ -377,17 +406,26 @@ export async function alterarStatus(id, userId, status) {
     throw erro(400, "Status inválido.");
   }
 
+  let carteiraRestante = null;
+  let responsavelName = null;
+
   await sequelize.transaction(async (transaction) => {
     const lead = await Lead.findByPk(id, {
       transaction,
       lock: transaction.LOCK.UPDATE,
+      include: [includeResponsavel],
     });
 
     if (!lead) {
       throw erro(404, "Lead não encontrado.");
     }
 
-    if (lead.responsavelId !== userId) {
+    const ator = await User.findByPk(userId);
+    const podeTratar =
+      lead.responsavelId === userId ||
+      ["admin", "master"].includes(ator?.role);
+
+    if (!podeTratar) {
       throw erro(403, "Você não é o responsável por este lead.");
     }
 
@@ -411,9 +449,24 @@ export async function alterarStatus(id, userId, status) {
         { transaction },
       );
     }
+
+    carteiraRestante = await Lead.count({
+      where: {
+        responsavelId: lead.responsavelId,
+        status: { [Op.in]: STATUS_ATIVOS },
+      },
+      transaction,
+    });
+    responsavelName = lead.responsavel?.name || "Consultor";
   });
 
-  return obterLead(id);
+  const leadAtualizado = await obterLead(id);
+
+  return {
+    ...leadAtualizado.toJSON(),
+    carteiraRestante,
+    responsavelName,
+  };
 }
 
 // INDICADORES DO DASHBOARD
@@ -422,11 +475,23 @@ export async function obterIndicadores(user, responsavelFiltro) {
   const admin = ["admin", "master"].includes(user.role);
 
   let carteira;
+  let mostrarTratados = false;
 
   if (user.role === "consultor") {
-    carteira = { responsavelId: user.id };
+    if (responsavelFiltro === "tratados") {
+      carteira = { responsavelId: user.id };
+      mostrarTratados = true;
+    } else {
+      carteira = {
+        responsavelId: user.id,
+        status: { [Op.in]: STATUS_ATIVOS },
+      };
+    }
   } else if (admin) {
-    if (responsavelFiltro === "meus") {
+    if (responsavelFiltro === "tratados") {
+      carteira = {};
+      mostrarTratados = true;
+    } else if (responsavelFiltro === "meus") {
       carteira = { responsavelId: user.id };
     } else if (responsavelFiltro === "livres") {
       carteira = { responsavelId: null };
@@ -454,28 +519,82 @@ export async function obterIndicadores(user, responsavelFiltro) {
     throw erro(403, "Perfil sem permissão de acesso.");
   }
 
+  if (!mostrarTratados && !carteira.status) {
+    carteira.status = { [Op.in]: STATUS_ATIVOS };
+  }
+
   const contarDisponiveis =
     admin && (!responsavelFiltro || responsavelFiltro === "livres");
+  const carteiraAtiva = mostrarTratados
+    ? carteira
+    : {
+        ...carteira,
+        status: { [Op.in]: STATUS_ATIVOS },
+      };
 
-  const [total, contatados, pendentes, disponiveis, cidades] =
+  let consultoresSemLeads = [];
+
+  if (admin && !mostrarTratados) {
+    const consultores = await User.findAll({
+      where: { role: "consultor" },
+      attributes: ["id", "name"],
+    });
+
+    const totaisPorConsultor = await Promise.all(
+      consultores.map(async (consultor) => ({
+        id: consultor.id,
+        name: consultor.name,
+        total: await Lead.count({
+          where: {
+            responsavelId: consultor.id,
+            status: { [Op.in]: STATUS_ATIVOS },
+          },
+        }),
+      })),
+    );
+
+    consultoresSemLeads = totaisPorConsultor
+      .filter((consultor) => consultor.total === 0)
+      .map(({ id, name }) => ({ id, name }));
+  }
+
+  const [
+    total,
+    contatados,
+    pendentes,
+    emNegociacao,
+    disponiveis,
+    cidades,
+  ] =
     await Promise.all([
       Lead.count({
-        where: carteira,
+        where: mostrarTratados
+          ? { ...carteira, status: { [Op.notIn]: STATUS_ATIVOS } }
+          : carteiraAtiva,
       }),
 
       Lead.count({
         where: {
           ...carteira,
-          status: "Contatado",
+          status: mostrarTratados ? "Tratado" : "Contatado",
         },
       }),
 
       Lead.count({
         where: {
           ...carteira,
-          status: "Pendente",
+          status: mostrarTratados ? "Tratado" : "Pendente",
         },
       }),
+
+      mostrarTratados
+        ? Promise.resolve(0)
+        : Lead.count({
+            where: {
+              ...carteira,
+              status: "Em negociação",
+            },
+          }),
 
       contarDisponiveis
         ? Lead.count({
@@ -496,8 +615,10 @@ export async function obterIndicadores(user, responsavelFiltro) {
     total,
     contatados,
     pendentes,
+    emNegociacao,
     disponiveis,
     cidades: cidades.map((item) => item.cidade).filter(Boolean),
+    consultoresSemLeads,
   };
 }
 

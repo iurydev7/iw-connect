@@ -9,7 +9,7 @@ router.use(authMiddleware);
 
 router.get("/", leadController.listar);
 
-router.post("/import", adminMiddleware, leadController.importar);
+router.post("/import", leadController.importar);
 
 router.post("/distribute", adminMiddleware, leadController.distribuir);
 
